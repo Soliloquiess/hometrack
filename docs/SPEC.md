@@ -905,8 +905,10 @@ excluded_trade_count: int
   //   ↑ 이번 수집에서 새로 D-30/D-7 안으로 들어온 것만 (D12). dday 는 탭5 화면에서 표시한다
   closed_notices: [ { id: string, reason: "apply_end"|"disappeared"|"notice_status" } ],   // (D12) notice_status = LH PAN_SS 가 접수마감으로 바뀐 경우
   changed_policies: [ { id: string, prev_hash: string, new_hash: string } ],
-  collector_failures: [ { key: string, name: string, status: "fail"|"skip", error: string, last_success: string } ] }
-  // skip(키 없음·fixture 생략)도 포함한다 — 원칙 4·7. 화면은 fail 과 skip 문구를 구분한다.
+  collector_failures: [ { key: string, name: string, status: "fail"|"skip"|"hold", error: string, last_success: string } ] }
+  // skip(키 없음·fixture 생략)도 포함한다 — 원칙 4·7. 화면은 fail / skip / hold 문구를 구분한다.
+  // hold = 수집기는 ok 였으나 결과 0건이라 마감(disappeared) 판정을 보류하고 직전 공고를 유지한 경우(D1 0건 가드).
+  //        "새 소식" ⑤ 수집 실패 섹션에 `0건 수집 — 마감 판정 보류` 로 실어 사람이 알게 한다.
   //   ↑ key 로 화면 분기 (D8). error 는 serviceKey 마스킹 후 (D7)
 ```
 
