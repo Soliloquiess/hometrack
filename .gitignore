@@ -16,3 +16,7 @@ Thumbs.db
 
 # 도구 상태 (OMC 등)
 .omc/
+
+# 로컬 실행 부산물
+*.log
+data/*.local.json

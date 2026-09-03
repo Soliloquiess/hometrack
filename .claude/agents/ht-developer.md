@@ -1,7 +1,7 @@
 ---
 name: ht-developer
 description: hometrack 개발자. collect.py(공공 API 수집)·build.py(단일 HTML 생성)·config.json·GitHub Actions 워크플로를 구현하고 빌드를 직접 실행해 확인한다. 표준 라이브러리만, 시크릿은 환경변수만, site/ 는 빌드로만.
-model: sonnet
+model: opus
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 

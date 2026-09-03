@@ -62,7 +62,7 @@ python build.py                   # site/index.html 생성
 python -m http.server -d site 8000   # 로컬 확인 http://localhost:8000
 git pull --rebase && git push     # 세션 시작·종료
 ```
-Windows Claude Code 의 `!` 프롬프트는 Git Bash 이므로 경로는 `/c/DEVTool/hometrack` 형식으로 쓴다.
+Windows Claude Code 의 `!` 프롬프트는 Git Bash 이므로 경로는 `/c/...` 형식으로 쓴다. 저장소 위치는 PC 마다 다르다(회사 PC `/c/DEVTool/hometrack`, 집 PC `/c/Users/cyh12/hometrack`). 명령은 저장소 루트에서 실행한다.
 
 ## 7. Design
 UI·HTML을 쓰거나 고칠 때는 **먼저 루트 `DESIGN.md` 를 읽고** Strict Rule로 적용한다.
