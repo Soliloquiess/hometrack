@@ -318,13 +318,34 @@ function pctOf(cond){
   const src = fs.readFileSync(path.join(H.ROOT, 'site', 'index.html'), 'utf8');
   const keys = ['hmt.cond'];
   const files = fs.readdirSync(path.join(H.ROOT, 'data')).filter(f => f.endsWith('.json'));
-  const condFields = ['"deposit":', '"loan":', '"rentCap"', '"netAsset"', '"totalAsset"', '"carValue"', '"savingsMonths"', '"savingsCount"', '"marry"', '"noHome"', 'hmt.cond'];
+  /* 재검수 정정(2026-09-03) — 이전 판은 `"noHome"` 같은 **축 이름**을 찾았고,
+     `meta.config.exclusion_rules[].input: "noHome"` 에 걸려 오탐이 났다.
+     그 값은 D19 가 코드 하드코딩을 막기 위해 config 로 뺀 **규칙표의 축 식별자**이고
+     사용자의 답(`"yes"`/`"no"`)이 아니다. Q7 이 막는 것은 **개인 조건의 값**이므로
+     검사를 "키:값 쌍" 으로 좁힌다. */
+  const condPatterns = [
+    /"deposit"\s*:\s*-?\d/, /"loan"\s*:\s*-?\d/, /"rentCap"\s*:\s*-?\d/,
+    /"income"\s*:\s*-?\d/, /"netAsset"\s*:\s*-?\d/, /"totalAsset"\s*:\s*-?\d/,
+    /"carValue"\s*:\s*-?\d/, /"savingsMonths"\s*:\s*-?\d/, /"savingsCount"\s*:\s*-?\d/,
+    /"marry"\s*:\s*"\d{4}-/, /"noHome"\s*:\s*"(yes|no)"/, /"dual"\s*:\s*(true|false)/,
+    /"household"\s*:\s*\d/, /hmt\.cond/, /"savedAt"\s*:/
+  ];
   const hits = [];
   files.forEach(f => {
     const t = fs.readFileSync(path.join(H.ROOT, 'data', f), 'utf8');
-    condFields.forEach(k => { if (t.indexOf(k) >= 0) hits.push(f + ':' + k); });
+    condPatterns.forEach(re => { const m = t.match(re); if (m) hits.push(f + ':' + m[0]); });
   });
-  chk('Q7', 'data/*.json 에 개인 조건 필드 0건', hits.length === 0, hits.join(',') || files.length + '파일 검사');
+  chk('Q7', 'data/*.json 에 개인 조건 값 0건 (축 이름은 D19 규칙표라 제외)',
+      hits.length === 0, hits.join(', ') || files.length + '파일 × ' + condPatterns.length + '패턴 검사');
+  /* 축 이름이 어디에 왜 있는지는 별도로 기록해 둔다 - 다음 검수자가 다시 오탐하지 않게. */
+  const axisHits = [];
+  files.forEach(f => {
+    const t = fs.readFileSync(path.join(H.ROOT, 'data', f), 'utf8');
+    const m = t.match(/"input"\s*:\s*"[A-Za-z]+"/g);
+    if (m) axisHits.push(f + ':' + [...new Set(m)].join('/'));
+  });
+  chk('Q7', '참고: 축 이름(exclusion_rules[].input)의 출현 위치', true,
+      axisHits.join(' ') || '0건');
   const sinks = (src.match(/localStorage\.(setItem|getItem|removeItem)\([^)]*/g) || []);
   const badSink = sinks.filter(s => !/hmt\.(cond|theme)|STORE_KEY/.test(s));
   chk('Q7', '저장 sink 는 hmt.cond / hmt.theme 뿐', badSink.length === 0, sinks.join(' | '));

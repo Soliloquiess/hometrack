@@ -259,3 +259,193 @@ node docs/qa/oracle_site_render.js /tmp/render.json       # -> throw 0
 # 3) 문구 구조 단정 73항목
 node docs/qa/oracle_site_assert.js /tmp/assert.json       # -> 통과 72 / 실패 1 (결함 #1)
 ```
+
+---
+---
+
+# 재검수 (2026-09-03 16:40 ~ 17:00 KST)
+
+| 항목 | 값 |
+|---|---|
+| 재검수 대상 | `site/index.html` — 커밋 `3316a3f` (`design: 화면 QA 결함 1~8 수정 … + 재빌드`), sha256 앞 16자 `61498245b6932841` |
+| 함께 반영된 명세 | `5e3f819` (SPEC — `collector_failures[].status` 에 `hold` 추가) · `324c6f9` (collect/build 의 hold 기록) · DESIGN_SPEC **v1.2.2** |
+| 1차 대비 코드 변경 | `site/index.html` **+110 / −14 줄** (DATA 리터럴 제외). CSS 인쇄 블록 · `normCond()` 신설 · `judgePolicy` 불가 분기 · `renderFresh` skip/hold 분기 · `inRegion` · `barChart` 가드 · `FAILURE_STATUS` 표 · `.news-item.is-off` |
+| 재검수 기준 시각 | 오라클·계측에 `NOW = 2026-09-03T16:37:12+09:00` 주입 |
+| 쓰기 범위 | `docs/qa/` 만. 소스·명세·목업 무수정. `collect.py`/`build.py` 는 지시대로 fixture 시나리오 확인에만 실행하고 **`git checkout -- data site` 로 원복**(원복 후 `site/index.html` sha256 = `61498245b6932841`, 재검수 시작 시점과 동일) |
+
+## R1. 판정
+
+# 조건부 GO
+
+**한 줄 이유** — 1차 결함 **#1~#8 전건이 해소**됐고(전수 재현·A4 계측·손상값 주입으로 각각 확인) 판정 오라클은 여전히 불일치 0이지만, 이번에 새로 들어온 `hold` 렌더가 신선도 바에 **`직전 0건 유지`** 라고 사실과 다르게 적어(실제 5건 유지, 같은 줄의 사유는 `직전 5건 유지`) 한 줄 안에서 자기모순을 만든다 — 새 결함 #9 를 고치면 GO.
+
+**조건부 해제 조건**: 새 결함 #9(중간) 수정 + #10(낮음) 정리 후 신선도 바 hold 줄만 재확인. 1차 결함 #1~#8 관련 항목은 재검수 불필요.
+
+## R2. 1차 결함 #1~#8 해소 확인
+
+| # | 1차 심각도 | 결과 | 재현·증거 |
+|---|---|---|---|
+| 1 | 높음 | **해소** | `inRegion()` 에 `if(UI.region === "busan") return true;` 추가(`:1946-1951`). 계측 — `near`: `{unknown:1, outRegion:4, 도달:1}` → `busan`: `{unknown:5, outRegion:0, **도달 5/5**}`, `inRegion()` 이 5건 전부 `true`. 오라클 `Q11/§2-2-3` 단정 **통과**(1차 유일 실패 항목). 브라우저: `site2_fresh_hold_1200.png` — `부산 전역` 활성에서 `신규 · 최근 7일 13건`(실 5 + 합성 8), LH 실공고 4건이 모두 카드로 나온다 |
+| 2 | 중간 | **해소** | skip 분기를 `c.status === "skip" && c.key === "private"` 로 좁히고(`:1594`) 그 외 skip 은 별도 문구로 분기(`:1604-1612`). 정책 줄 = `정리 2026-09-03 · 이번 실행 건너뜀` + 사유 `fixture 모드 — 정책 페이지 fetch 생략`. SPEC §2 가 요구한 `meta.policy_verified_latest` 가 화면에 복귀하고 skip 사유도 표시된다(원칙 7). `수집 안 함 — 검색 링크만 제공` 문구 출현 **1회**(민간 줄 전용) |
+| 3 | 중간 | **해소** | 인쇄 블록에 `.tradewrap{flex-wrap:wrap!important}` + `.trade-sum{flex:0 0 calc(50% - 3px)!important; max-width:calc(50% - 3px)!important}` 추가(`:663-664`). A4 본문폭 **703px** 계측(합성 공고 14건 · 시세 카드 6개) — 탭2 `docScrollW=703 == pageW=703`, **종이 밖 요소 0개**(1차 1557px / 60개). 육안 `site2_printemul_homes.png` 에서 시세 카드가 2열로 접혀 들어간다 |
+| 4 | 낮음 | **해소** | 인쇄 블록에 `.etable{font-size:9pt}` · `th,td{padding:3px 4px; word-break:break-all}` · `th{font-size:8.5pt; white-space:normal}` 추가(`:667-669`). 703px 계측 — 탭4 `docScrollW=703`, 종이 밖 **0개**(1차 746px / 134개). 육안 `site2_printemul_stations.png` 에서 마지막 열 `진행 공고` 까지 보인다. `landscape` 로 도망가지 않아 다른 탭 용지 방향이 유지된다 |
+| 5 | 낮음 | **해소** | 불가 분기에서도 `notes` 를 `참고:` 로 이어 붙인다(`:1496-1501`). 1차 보고서 재현 케이스(가구원수 1 · 맞벌이 O · 연소득 7,000만원 · 총자산·자동차 999,999만원) → `p_happy_house` = `불가 [approx] 총자산이 기준 초과(…) / 자동차 가액이 기준 초과(…) / **참고: 월평균 소득 5,833,333원이 기준 5,338,708원 초과 (1인 · 140%(120%+20%p 가산) · 근사값) — 기준액이 근사값이라 불가로 판정하지 않음**`. 오라클 `Q33_no_note` 를 **불가 판정까지 확장**해 전수 검사 — 배지가 붙었는데 `참고:` 가 없는 카드 **0 / 453,600** |
+| 6 | 낮음 | **해소** | private 줄 `.why` 가 `c.error` 우선(`:1600`). `.v` = `수집 안 함 — 검색 링크만 제공`, `.why` = `민간 부동산 플랫폼은 크롤링하지 않는다 (원칙 3)` — 중복 없음 |
+| 7 | 낮음 | **해소** | `normCond()` 신설(`:1187-1206`). 손상된 `hmt.cond` 4종을 `loadCond()` 경로로 주입 — 문자열 숫자·NaN·객체/배열 뒤섞기·스키마 밖 키 전부 미입력으로 정규화, `availAmount()` 는 항상 `number`, **누출 0**. 스키마 밖 키(`evil`, `__proto__x`)가 `COND` 에 남지 않아 프로토타입 오염·XSS 표면도 함께 줄었다. 견고성 스위트 **누출 63 → 0 / 480 시나리오**, throw 0 |
+| 8 | 낮음 | **해소** | `rows` 필터에 `Number.isFinite(r.a.deposit_median)` 추가 + `maxV` 가 유한·양수가 아니면 `표시할 값 없음 — …` 문구(`:2524-2534`). `deposit_median = null` 주입 시 `width="NaN"` **0건** |
+
+**전수 재현 결과 (커밋 `3316a3f`)**
+
+```
+== 평가 건수 ==   policy_evals 453600 · notice_evals 1240 · ratio_evals 279
+== 배지 발생 ==   {'pending': 55377, 'approx': 11907}
+== 오라클 불일치 == 0 종
+== 불변식 위반 == 0 종            RESULT: PASS      (1차: 불변식 7종 41,868건 — R4 참조)
+== 견고성 ==      480 시나리오 · throw 0 · 누출 0    (1차: 누출 63)
+== 문구·구조 단정 == 74항목 · 통과 74 · 실패 0        (1차: 73항목 · 실패 1)
+```
+
+**회귀 확인** — 화면 계층 계측을 합성 데이터(공고 14건·시세 카드 6개·예산 입력) 위에서 다시 돌렸다.
+`375 · 414 · 768 · 1100 · 1200px × 5탭 = 25조합` 전부 `scrollWidth == clientWidth`(body 가로 스크롤 0), 스크롤 컨테이너 밖 넘침 0, 텍스트 클리핑 0.
+콘솔 에러 **0**, `performance.getEntriesByType("resource")` = **0건**(전 조합), 본문 텍스트 `NaN`/`undefined`/`Infinity`/`[object` **0건**.
+즉 Q1·Q2·Q5·Q25 는 인쇄 CSS·`normCond` 변경에도 회귀가 없다.
+
+> 1차 라운드 계측 스크립트에 있던 오탐 하나를 함께 고쳤다 — 조상 사슬을 훑을 때 첫 `overflow:hidden` 조상에서 멈추던 탓에
+> `.pbar{overflow:hidden}`(막대 채움 클립) 안쪽 `<i>` 가 상위 `.tradewrap`(가로 스크롤)을 못 보고 7건 오탐이 났다.
+> 사슬 전체를 훑고 텍스트 클리핑은 요소 자신의 `scrollWidth` 로 따로 보게 바꾼 뒤 0건이 됐다.
+
+## R3. `hold` 렌더 확인 (SPEC `5e3f819`)
+
+**(a) 테스트 데이터 주입** — `diff.collector_failures` 에 `fail`(myhome) · `hold`(lh) · `skip`(policy) 한 건씩.
+
+신선도 바 — 3색·3문구 구분 확인 (`site2_fresh_hold_1200.png`)
+
+| status | 줄 클래스 | 태그 | 본문 |
+|---|---|---|---|
+| `fail` | `row fail` (`--hi`) | `실패 · 반자동` (`tag-high`) | `직전 성공 2026-09-02 07:01 (34시간 전) · 0건` + 사유 |
+| `hold` | `row warn` (`--mid`) | `보류 · 반자동` (`tag-mid`) | `0건 수집 — 마감 판정 보류 · 직전 5건 유지` + 사유 |
+| `skip` | `row off` (`--fg-3`) | `반자동` (kind 원값, 승격 없음) | `정리 2026-09-03 · 이번 실행 건너뜀` + 사유 |
+| `skip`(private) | `row off` | `—` | `수집 안 함 — 검색 링크만 제공` (전용 문구 유지) |
+
+탭5 ⑤ — 3종 구분 확인 (`site2_news_hold_1200.png`)
+
+```
+⑤ 수집 실패  3건
+  ⏸  LH 분양임대공고문 (부산) — 0건 수집 — 마감 판정 보류      (.news-item.is-warn / --mid)
+     사유: LH 목록이 0건을 돌려줬습니다 … · 마지막 성공 2026-09-03 16:37
+  —  신혼부부 정책 기준 — 이번 실행 건너뜀                      (.news-item.is-off  / --fg-3)
+     사유: fixture 모드 — 정책 페이지 fetch 생략 · 마지막 성공 2026-09-03 14:29
+  ✕  마이홈포털 공공주택 모집공고 — 수집 실패                    (.news-item.is-fail / --hi)
+     사유: HTTP 500 — 마이홈 API 응답 오류 · 마지막 성공 2026-09-02 07:01
+```
+
+- 분기는 `FAILURE_STATUS` 표(`:1155-1162`) 경유이고 `status` 가 없는 옛 데이터는 `fail` 로 폴백한다 — enum 밖 값에서 `undefined` 가 새지 않는다.
+- 상단바 수집 상태는 `2026-09-03 16:37 · 수집 실패 1` — `hold`·`skip` 은 실패 카운트에 넣지 않는다. `collectors[].status === "fail"` 만 세므로 정확하다.
+- `hold` 의 정본은 `diff.collector_failures` 이고 `collectors[].status` 는 `ok` 로 남는다(SPEC `5e3f819`). `holdOf(key)`(`:1580-1584`)가 그것을 읽고, `collectors[].status === "hold"` 로 직접 오는 경우도 함께 받는다 — 양쪽 경로 확인.
+- 인쇄에서도 hold 줄이 `보류 · 반자동` 태그와 테두리를 유지한다(`site2_printemul_homes.png`).
+
+**(b) 실데이터 경로** — `python collect.py --fixture --fixture-scenario lh_zero && python build.py`
+
+```
+경고: LH 0건 수집 — 마감 판정을 보류하고 직전 5건을 유지한다
+완료 — 공고 5건 / 실거래 집계 31조합 / 신규 0건 / 마감 0건
+snapshot_diff.collector_failures[0] = {"key":"lh","status":"hold",
+   "error":"0건 수집 — 마감 판정 보류 · 직전 5건 유지","last_success":"2026-09-03T16:48:08+09:00"}
+notices.json = 5건 (전부 LH) · closed_notices = 0
+build.py … 경고 0건 · 런타임 스모크 통과
+```
+
+빌드 산출물에서 신선도 바 LH 줄 = `row warn` + `보류 · 반자동`, 탭5 ⑤ = `⏸ … — 0건 수집 — 마감 판정 보류`.
+**즉 hold 는 실데이터 경로에서도 화면에 뜬다.** 다만 그 줄의 건수 표기가 틀렸다 → 새 결함 #9.
+
+**원복** — `python collect.py --fixture && python build.py` 후 남은 차이는 타임스탬프 8종과 `meta.collectors[].duration_ms`(측정 잡음)뿐임을 타임스탬프 정규화 대조로 확인하고, 지시대로 `git checkout -- data site` 실행. 원복 후 `site/index.html` sha256 앞 16자 = `61498245b6932841` (재검수 시작 시점과 동일), `git status` 에 `data/`·`site/` 변경 **0건**.
+
+## R4. 디자이너가 남긴 두 판단에 대한 결론
+
+**(a) `Q16_approx_reason_no` · `Q31_pending_income_reason_no` 41,868건 — 주장 타당. 오라클을 조였다.**
+
+디자이너 주장이 맞다. SPEC §3-2 결합 2단은 "official 이고 **근사값이 아닌** 불가 사유가 하나라도 있으면 불가"이고, D11·DESIGN_SPEC §2-2-2 는 근사값 강등을 **기준 단위**로 규정하며 그 실측 예시가 바로 `불가 — 소득 … / 총자산 … / 유주택` 이다. 1차 보고서 §6-1 도 같은 결론을 냈지만 **오라클 코드는 조이지 않고 남겨 뒀다** — 그게 이번에 41,868건을 그대로 다시 세게 만들었다. 검수자 잘못이다.
+
+`docs/qa/oracle_site_compare.py` 를 고쳤다(검사 축을 "카드 판정"에서 **"불가 사유 목록의 구성"**으로 이동):
+
+```python
+# 화면 사유의 `참고:` 앞부분(= 하드 불가 사유)의 항목 수가
+# 독립 오라클이 계산한 하드 사유 수와 같아야 한다.
+hard_part = why.split(' / 참고: ')[0]
+n_shown = len([s for s in hard_part.split(' / ') if s.strip()])
+n_exp   = len(exp.get('reasons') or [])
+if n_shown != n_exp: -> Q16Q31_hard_reason_count 위반
+```
+
+이 형태가 1차 판보다 **더 엄격하다** — 게이트 대상 사유가 하드로 새면 개수가 늘고, 하드 사유가 삼켜지면(Q32) 개수가 줄어 양쪽을 다 잡는다. 453,600 판정에서 **위반 0**. 아울러 `Q33_no_note` 를 `cond` 뿐 아니라 **`no` 판정까지 확장**해 결함 #5 의 재발을 상시 감시하게 했다.
+
+> **SPEC 쪽 권고(화면 계층 몫 아님)**: §4 Q16·Q31 의 문장은 여전히 "배지가 붙은 **판정**에서 불가 0건" 으로 읽혀 다음 검수자가 같은 오탐을 반복할 소지가 있다. "근사값·완화예정 **사유**가 불가 사유 목록에 남지 않음" 으로 조이는 편이 안전하다(1차 보고 §6-1 과 동일 권고).
+
+**(b) Q7 이 `exclusion_rules[].input:"noHome"` 에 걸린 것 — 주장 타당. 오탐이다. 오라클을 조였다.**
+
+`data/meta.json` 의 `"input": "noHome"` 은 D19 가 **키워드 하드코딩을 막기 위해 `config.json` 으로 뺀 규칙표의 축 식별자**이고 사용자의 답(`"yes"`/`"no"`)이 아니다. Q7 이 막는 것은 개인 조건의 **값**이므로 축 이름은 대상이 아니다. (1차 라운드에서 통과했던 이유는 그때 `collect.py` 가 `meta.json` 에 `exclusion_rules` 를 쓰지 않아 `build.py` 가 `config.json` 에서 복사해 넣었기 때문이고, DEF 수정으로 `collect.py` 가 직접 쓰게 되면서 드러났다.)
+
+`docs/qa/oracle_site_assert.js` 의 Q7 검사를 **키:값 쌍 15패턴**으로 바꿨다 — `"deposit"\s*:\s*-?\d` · `"noHome"\s*:\s*"(yes|no)"` · `"marry"\s*:\s*"\d{4}-` · `"dual"\s*:\s*(true|false)` · `hmt\.cond` · `"savedAt"\s*:` 등. 결과 **10파일 × 15패턴 = 0건**. 아울러 축 이름의 출현 위치를 별도 항목으로 **기록**해 다음 검수자가 다시 오탐하지 않게 남겼다(`meta.json:"input": "noHome"/"input": "householder"`).
+
+## R5. 새 결함
+
+| # | 심각도 | 파일:줄 | 문제 | 재현 | 권고 |
+|---|---|---|---|---|---|
+| 9 | 중간 | `site/index.html:1616-1622` (`renderFresh` 의 `hold` 분기) | 신선도 바 hold 줄이 `직전 **0건** 유지` 라고 **사실과 다르게** 적는다. `num(c.item_count)` 를 쓰는데 `collectors[].item_count` 는 **이번 회차 수집 건수(0)** 이고 "직전 유지 건수"가 아니다. 실제로는 `notices.json` 이 5건을 유지했고, **같은 줄의 `.why`(= collect.py 가 준 `error`)는 `직전 5건 유지` 라고 적어 한 줄 안에서 자기모순**이다. 탭2 목록·탭 배지도 5건을 보여줘 3중으로 어긋난다. hold 는 "출처가 0건을 돌려줬지만 직전 데이터를 지키고 있다"를 알리려고 만든 상태인데, 화면은 그 반대(직전분도 0건)로 읽힌다 — 원칙 3·6 이 막으려는 오인이다 | `python collect.py --fixture --fixture-scenario lh_zero && python build.py` → 신선도 바 2번째 줄: `LH 분양임대공고문 (부산) │ 0건 수집 — 마감 판정 보류 · 직전 0건 유지 │ 0건 수집 — 마감 판정 보류 · 직전 5건 유지 │ [보류 · 반자동]`. 같은 화면의 `신규 · 최근 7일` = 5건, 탭 배지 `추천 주거 5`. 증적 `docs/qa/site2_hold_itemcount_bug.png`, `docs/qa/site2_real_hold_lhzero.png` | `item_count` 대신 **유지된 실제 건수**를 센다 — 예: `DATA.notices.filter(function(n){ return n.source === "LH"; }).length`. 출처↔`source` 매핑을 화면에 새로 만들지 않으려면 건수 문구를 아예 빼고(`0건 수집 — 마감 판정 보류`) 건수는 `.why`(collect.py 의 `error`)에만 맡기는 편이 안전하다. `collect.py` 가 유지 건수를 별도 필드(`retained_count`)로 주는 것이 가장 깔끔하다 — 그건 수집 계층 몫 |
+| 10 | 낮음 | `site/index.html:1616-1622` | hold 줄의 `.v` 와 `.why` 가 같은 문장으로 시작해 사실상 두 번 읽힌다 — `.v` = `0건 수집 — 마감 판정 보류 · 직전 0건 유지`, `.why` = `0건 수집 — 마감 판정 보류 · 직전 5건 유지`. 1차 결함 #6(민간 줄 `.v`/`.why` 중복)과 **같은 계열이 hold 분기에서 재발**했다. `.why` 폴백(`hold.error || c.note || "출처가 0건을 돌려줬습니다 …"`)이 `hold.error` 를 먼저 보는데 그 값이 `.v` 와 겹치는 문장이다 | 위와 같은 재현. `docs/qa/site2_hold_itemcount_bug.png` 2번째 줄 | `.v` 는 상태·건수만(`0건 수집 — 마감 판정 보류`), `.why` 는 **왜 보류하는지**만(`출처가 0건을 돌려줬습니다. 목록이 실제로 비었는지 출처 장애인지 알 수 없어 마감 판정을 하지 않습니다.`) 쓰게 역할을 나눈다. `hold.error` 가 상태 문구를 반복하면 폴백 문구를 쓰는 편이 낫다 |
+
+## R6. 육안 확인 필요 (1차와 동일, 갱신분만)
+
+1. **실제 프린터 흑백 출력** — 인쇄 대비 이중화(배경 강제 + 1px 테두리)는 CSS·계측으로 확인했고 이번에 `hold` 줄(`--mid` 배경 + 테두리)이 추가됐다. 배경을 빼는 드라이버에서 `fail`/`hold`/`skip` 3색이 종이에서 구분되는지는 사람이 봐야 한다 — **hold 가 새로 생겼으므로 1차보다 확인 가치가 커졌다.**
+2. **A4 실제 페이지 나눔** — `site2_print_{homes,stations,news,input}.pdf` 4종을 넘겨 `.trade-sum` 2열 접힘이 페이지 경계에서 쪼개지지 않는지. 폭은 계측으로 확인했으나 높이·나눔은 PDF 렌더러(`pdftoppm`)가 이 환경에 없어 자동 확인하지 못했다.
+3. **실기기 375px 터치 스크롤** — 1차와 동일.
+4. **`prefers-color-scheme` 실제 전환 시 번쩍임** — 1차와 동일. 다크 증적 `site2_dark_homes_1200.png`.
+5. **GitHub Pages 배포본 외부 요청 0건** — 1차와 동일(로컬 `file://` 에서 0건 확인).
+
+## R7. 다음 단계 함정 3개 (갱신)
+
+1. **결함 #9 를 "직전 건수"로 고칠 때 출처↔`notices[].source` 매핑을 화면에 새로 만들지 마라.** `collectors[].key`(`lh`)와 `notices[].source`(`LH`)는 다른 축이고, 화면이 그 대응표를 갖는 순간 D8("화면 분기는 `key` 로만")이 무너진다. `collect.py` 가 `retained_count` 를 주는 쪽이 정답이다.
+2. **`13역 인근` 기본값은 여전히 대부분을 가린다.** 결함 #1 은 "부산 전역으로 전부 볼 수 있다"까지 고쳐졌지만 `notices[].station_ids` 는 실데이터에서 아직 전부 빈 배열이어서 기본 상태에서는 5건 중 1건만 보인다. 공고↔역 매핑(수집 계층)이 들어오기 전까지 **기본 지역 필터를 `부산 전역` 으로 둘지**는 사용자 결정 사항이다 — 화면이 임의로 바꾸면 SPEC §2 탭2 2-3("기본값은 13역 인근")을 어긴다.
+3. **`hold` 는 SPEC 상 "⑤ 수집 실패" 섹션에 들어간다.** `5e3f819` 가 그렇게 정했고 구현도 그렇지만, 섹션 제목이 3종(실패·건너뜀·보류)을 포괄하지 못해 `보류 3건` 이 `수집 실패 3건` 으로 세어진다. 화면 결함이 아니라 **SPEC 문구 문제**이므로 다음 SPEC 개정에서 제목을 `⑤ 수집 상태 알림` 류로 넓히는 것을 검토하라. 화면이 먼저 제목을 바꾸면 명세와 어긋난다.
+
+## R8. 재검수 증적
+
+| 파일 | 내용 |
+|---|---|
+| `site2_fresh_hold_1200.png` | 신선도 바 fail/hold/skip 3색·3문구 + `부산 전역` 에서 실공고 4건 복귀 |
+| `site2_news_hold_1200.png` | 탭5 ⑤ 3종(`⏸`/`—`/`✕`) 구분 |
+| `site2_homes_1200.png` · `site2_stations_1200.png` | 합성 공고 14건 · 예산 2축 · 시세 6카드 (라이트 1200px) |
+| `site2_dark_homes_1200.png` | 다크(`data-theme="dark"` 주입 사본) |
+| `site2_375_{homes,stations,news}.png` | 정확한 375px 렌더(iframe 375px 랩퍼) |
+| `site2_printemul_{homes,stations,input}.png` | **A4 본문폭 703px** 인쇄 레이아웃 — 결함 #3·#4 해소 증적 |
+| `site2_print_{homes,stations,news,input}.pdf` | `--print-to-pdf` 실 PDF 4종 |
+| `site2_real_hold_lhzero.png` | `--fixture-scenario lh_zero` 실데이터 경로의 탭5 hold |
+| `site2_hold_itemcount_bug.png` | **새 결함 #9·#10** — `직전 0건 유지` vs `직전 5건 유지` vs 목록 5건 |
+
+오라클 6종은 1차와 같은 파일이며 이번에 `oracle_site_compare.py`(Q16/Q31/Q33 검사) · `oracle_site_assert.js`(Q7 검사) 두 개를 R4 결론대로 고쳤다. `QA_ROOT` 로 임의 커밋 스냅샷을 대상으로 돌릴 수 있다.
+
+## R9. `git status --short` (재검수 종료 시점)
+
+```
+ M docs/qa/oracle_site_assert.js
+ M docs/qa/oracle_site_compare.py
+?? docs/qa/site2_375_homes.png
+?? docs/qa/site2_375_news.png
+?? docs/qa/site2_375_stations.png
+?? docs/qa/site2_dark_homes_1200.png
+?? docs/qa/site2_fresh_hold_1200.png
+?? docs/qa/site2_hold_itemcount_bug.png
+?? docs/qa/site2_homes_1200.png
+?? docs/qa/site2_news_hold_1200.png
+?? docs/qa/site2_print_homes.pdf
+?? docs/qa/site2_print_input.pdf
+?? docs/qa/site2_print_news.pdf
+?? docs/qa/site2_print_stations.pdf
+?? docs/qa/site2_printemul_homes.png
+?? docs/qa/site2_printemul_input.png
+?? docs/qa/site2_printemul_stations.png
+?? docs/qa/site2_real_hold_lhzero.png
+?? docs/qa/site2_stations_1200.png
+```
+
+**`docs/qa/` 외 변경 0건.** `collect.py`/`build.py` 를 fixture 시나리오 확인에 실행했으나 `git checkout -- data site` 로 원복해 `data/`·`site/` 는 `HEAD`(`3316a3f`)와 동일하다(`site/index.html` sha256 앞 16자 `61498245b6932841`). 소스·명세·목업은 손대지 않았고 커밋하지 않았다.

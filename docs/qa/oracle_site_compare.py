@@ -54,17 +54,26 @@ def main(path):
                     # 불변식 Q12 - 비official 정책에서 불가 0
                     if got['k'] == 'no' and p.get('confidence') != 'official':
                         note(inv, ('Q12_nonofficial_no', got['id']), {'cond': cond, 'got': got})
-                    # 불변식 Q16 - 근사값 기반 사유가 "불가"로 남지 않는다 (기준 단위, D11)
-                    #   SPEC §3-2 결합 2단: "official 이고 근사값이 아닌 불가 사유"만 불가.
-                    #   따라서 카드 자체는 다른(하드) 사유로 불가일 수 있다 - 그건 정상.
+                    # 불변식 Q16/Q31 - 게이트로 강등된 기준이 "불가 사유"로 남지 않는다
+                    #
+                    #   재검수 정정(2026-09-03). 이전 판(카드 판정이 no 인데 근사값·pending
+                    #   소득초과 사유가 존재하면 위반)은 **너무 넓었다** — SPEC §3-2 결합 2단은
+                    #   "official 이고 근사값이 아닌 불가 사유가 하나라도 있으면 불가" 이고,
+                    #   D11·DESIGN_SPEC §2-2-2 는 근사값 강등을 **기준 단위**로 규정한다.
+                    #   즉 근사값·완화예정 배지가 붙은 카드가 **다른 하드 사유**(유주택·자산 초과)로
+                    #   불가가 되는 것은 정상이고, DESIGN_SPEC §2-2-2 의 실측 사유 예시가 바로 그 경우다.
+                    #   따라서 검사 축을 "카드 판정" 에서 **"불가 사유 목록의 구성"** 으로 옮긴다:
+                    #   화면 사유의 `참고:` 앞부분(= 하드 불가 사유)의 항목 수가 독립 오라클이 계산한
+                    #   하드 사유 수와 같아야 한다. 게이트 대상 사유가 하드로 새면 개수가 늘고,
+                    #   하드 사유가 삼켜지면(Q32) 개수가 줄어 양쪽 다 잡힌다.
                     if got['k'] == 'no':
-                        ii = O.judge_income(p, cond, tables)
-                        if any(r['k'] == 'no' and r.get('approx') for r in ii):
-                            note(inv, ('Q16_approx_reason_no', got['id']), {'cond': cond, 'got': got})
-                        # 불변식 Q31 - pending_change + 소득초과 사유가 불가로 남지 않는다
-                        if p.get('pending_change') and any(
-                                r['k'] == 'no' and r.get('incomeOver') and not r.get('approx') for r in ii):
-                            note(inv, ('Q31_pending_income_reason_no', got['id']), {'cond': cond, 'got': got})
+                        why = got.get('why') or ''
+                        hard_part = why.split(' / 참고: ')[0]
+                        n_shown = len([s for s in hard_part.split(' / ') if s.strip()])
+                        n_exp = len(exp.get('reasons') or [])
+                        if n_shown != n_exp:
+                            note(inv, ('Q16Q31_hard_reason_count', got['id'], n_exp, n_shown),
+                                 {'cond': cond, 'expected': exp, 'got': got})
                     # 불변식 Q32 - 유주택(하드 불가)이 다른 사유에 삼켜지지 않는다
                     if cond.get('noHome') == 'no' and (p.get('criteria') or {}).get('no_home_required') \
                             and p.get('confidence') == 'official':
@@ -74,9 +83,11 @@ def main(path):
                     # 불변식 Q17 - 사유 없는 배지 0
                     if not (got.get('why') or '').strip():
                         note(inv, ('Q17_empty_why', got['id'], got['k']), {'cond': cond, 'got': got})
-                    # 불변식 Q33 - 강등되면 사유에 '참고:' 가 남는다
-                    if got['k'] == 'cond' and got['badges'] and '참고:' not in (got['why'] or ''):
-                        note(inv, ('Q33_no_note', got['id'], tuple(got['badges'])),
+                    # 불변식 Q33 - 강등되면 사유에 '참고:' 가 남는다.
+                    #   재검수에서 **불가 판정까지 확장**했다 — 배지는 판정과 무관하게 붙으므로
+                    #   불가 카드에서 원인 문구를 버리면 사유 없는 배지가 된다(구 결함 #5).
+                    if got['k'] in ('cond', 'no') and got['badges'] and '참고:' not in (got['why'] or ''):
+                        note(inv, ('Q33_no_note', got['id'], got['k'], tuple(got['badges'])),
                              {'cond': cond, 'got': got})
                     # NaN/undefined/Infinity 누출
                     w = got.get('why') or ''
