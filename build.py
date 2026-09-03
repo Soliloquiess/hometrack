@@ -185,7 +185,7 @@ ENUM_ID_BASIS = {"notice_no", "composite"}
 ENUM_CLOSED_REASON = {"apply_end", "disappeared", "notice_status"}
 ENUM_HOUSING_TYPE = {"apt", "villa", "officetel"}
 ENUM_DEAL_TYPE = {"jeonse", "banjeonse", "wolse"}
-ENUM_FAILURE_STATUS = {"fail", "skip"}
+ENUM_FAILURE_STATUS = {"fail", "skip", "hold"}
 
 # D19 — 화면이 실제로 판정하는 입력 축. 목업 `EXCL_INPUT` 의 키와 같아야 한다
 # (mockup/index.html 의 `var EXCL_INPUT = { noHome: …, householder: … }`).

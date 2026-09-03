@@ -1357,7 +1357,8 @@ def dday(apply_end, base_day):
     return (end - base_day).days
 
 
-def build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today):
+def build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today,
+               zero_holds=None):
     """snapshot_diff.json 을 만든다 (§3-6, D12)."""
     today_iso = today.isoformat()
     is_first_run = prev_diff is None and not prev_by_id
@@ -1418,6 +1419,7 @@ def build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today):
                 if current is None or days < current:
                     closing_soon[notice["id"]] = days
 
+    holds = zero_holds or {}
     failures = []
     for record in collector_records:
         if record["status"] == "fail" or (record["status"] == "skip" and record["kind"] != "none"):
@@ -1428,6 +1430,19 @@ def build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today):
                     # SPEC §3-6 필수 — 화면이 '실패'와 '건너뜀' 문구를 구분할 유일한 근거 (DEF-3)
                     "status": record["status"],
                     "error": record["error"],
+                    "last_success": record["last_success"],
+                }
+            )
+        elif record["key"] in holds:
+            # 0건 가드로 authoritative 에서 강등된 수집기 (DEF-1). collectors[].status 는
+            # 실제로 성공했으므로 ok 로 두고, 마감 판정 보류만 status="hold" 로 실어
+            # '새 소식' ⑤ 에서 사람이 알게 한다 (§3-6).
+            failures.append(
+                {
+                    "key": record["key"],
+                    "name": record["name"],
+                    "status": "hold",
+                    "error": holds[record["key"]],
                     "last_success": record["last_success"],
                 }
             )
@@ -1800,12 +1815,17 @@ def main(argv=None):
         if source_name:
             prev_active_by_source[source_name] = prev_active_by_source.get(source_name, 0) + 1
 
+    zero_holds = {}
+
     def authoritative_for(run, source_name, collected_notices):
         if not run.ok:
             return False
         prev_count = prev_active_by_source.get(source_name, 0)
         if not collected_notices and prev_count > 0:
             run.add_note("0건 수집 — 마감 판정 보류")
+            zero_holds[run.key] = (
+                "0건 수집 — 마감 판정 보류 · 직전 %d건 유지" % prev_count
+            )
             log("경고: %s 0건 수집 — 마감 판정을 보류하고 직전 %d건을 유지한다"
                 % (source_name, prev_count))
             return False
@@ -1825,7 +1845,8 @@ def main(argv=None):
         cfg, auto_notices, manual_notices, prev_notices_list, authoritative, today_iso
     )
 
-    diff = build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today)
+    diff = build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today,
+                      zero_holds=zero_holds)
     diff["changed_policies"] = changed_policies
 
     history = read_json(DATA_DIR / "diff_history.json", []) or []
