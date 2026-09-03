@@ -2,7 +2,7 @@
 
 > 레인 **B**: `collect.py` → `data/*.json` → `build.py` → 의존성 0 단일 `site/index.html`.
 > 산출 HTML을 손으로 고치지 않는다. **`build.py`·템플릿·`assets_src/` CSS를 고친다.**
-> 글로벌 규칙 `~/.claude/design/DESIGN.standalone.md` 를 따르되, 토큰은 아래 값이 우선한다.
+> 글로벌 규칙 `~/.claude/design/DESIGN.standalone.md` 가 있으면 참고하되, **없어도 이 파일만으로 동작한다**(CLAUDE.md §0 "전역 설정 없이 동작"). 토큰은 아래 값이 정본이다.
 
 ## 0. 절대 원칙
 1. **자기완결** — CSS·JS·데이터 인라인. 외부 CDN·웹폰트·이미지·지도 타일 링크 금지(GitHub Pages에 올려도 외부 요청 0건 유지).
@@ -40,6 +40,43 @@
 :root[data-theme="dark"]{ /* 위 다크 블록과 동일 값을 반복 (토글 우선) */ }
 ```
 
+### 1-1. 인쇄 팔레트 `--print-*` (정본)
+
+`@media print` 는 **라이트 고정 + 대비 강화** 팔레트를 쓴다. 그 값을 인쇄 블록 안에 리터럴로 적으면
+DESIGN.md 에 없는 4번째 팔레트가 조용히 생긴다(검수 M14). 그래서 **인쇄 값도 여기서 토큰으로 정의**하고,
+`@media print` 는 `--bg: var(--print-bg)` 처럼 **대입만** 한다. 인쇄 블록의 색 리터럴은 **0건**이어야 한다.
+
+```css
+:root{
+  --print-bg:#ffffff; --print-bg-2:#ffffff; --print-bg-3:#f1f3f6; --print-bg-sunk:#e4e7ec;
+  --print-fg:#000000; --print-fg-2:#2b3340; --print-fg-3:#4a5260;
+  --print-line:#b4bbc6; --print-line-2:#8f97a4;
+  --print-accent:#1a4f9e; --print-accent-bg:#e9f0fb;
+  --print-hi:#8f2a15; --print-hi-bg:#fbe6e1;
+  --print-mid:#7a4700; --print-mid-bg:#fbf0d6;
+  --print-low:#3b551f; --print-low-bg:#eaf3de;
+  --print-add-bg:#e6f4e8; --print-add-fg:#14562a;
+  --print-del-bg:#fbe8e8; --print-del-fg:#86201c;
+}
+@media print{ :root, :root[data-theme="dark"], :root:not([data-theme="light"]){
+  --bg:var(--print-bg); --bg-2:var(--print-bg-2); --bg-3:var(--print-bg-3); --bg-sunk:var(--print-bg-sunk);
+  --fg:var(--print-fg); --fg-2:var(--print-fg-2); --fg-3:var(--print-fg-3);
+  --line:var(--print-line); --line-2:var(--print-line-2);
+  --accent:var(--print-accent); --accent-bg:var(--print-accent-bg);
+  --hi:var(--print-hi); --hi-bg:var(--print-hi-bg);
+  --mid:var(--print-mid); --mid-bg:var(--print-mid-bg);
+  --low:var(--print-low); --low-bg:var(--print-low-bg);
+  --add-bg:var(--print-add-bg); --add-fg:var(--print-add-fg);
+  --del-bg:var(--print-del-bg); --del-fg:var(--print-del-fg);
+  --shadow:none;
+}}
+```
+
+**인쇄 대비 전략은 하나로 통일한다 — "배경 강제 + 테두리 이중화"**(검수 M15).
+`print-color-adjust:exact` 로 배경을 살리고, **배경이 빠지는 프린터를 대비해 같은 요소에 1px 테두리를 함께 건다.**
+대상: `.verdict` `.dday` `.conf` `.fitchip` `.tag-*` `.chip` `.pbar` `.policy-stale` `.policy-changed` `.news-item` `.stat`.
+배경만으로 구분되던 것(`.tag-*` · `.policy-stale` · `.policy-changed`)에 테두리 폴백이 없으면 흑백 인쇄에서 구분이 사라진다.
+
 글로벌 템플릿 역할명 ↔ 이 프로젝트 토큰 대응: `--bg-sub`→`--bg-3` · `--fg-muted`→`--fg-3` · `--border`→`--line` · `--accent-soft`→`--accent-bg` · `--ok`→`--low` · `--warn`→`--mid` · `--danger`→`--hi` · `--info`→`--accent` · `--font`→`--sans`.
 
 기본 테마 **라이트**. 다크는 `prefers-color-scheme` 자동 + 상단바 토글(`data-theme`), svntrack과 동일 방식.
@@ -52,7 +89,11 @@
 ## 3. 이 프로젝트 고유 규칙
 - **3단 판정 뱃지**는 색+텍스트 병기: `해당`(`--low`) · `조건부`(`--mid`) · `불가`(`--hi`). 사유 텍스트를 뱃지 옆에 항상 붙인다.
 - **D-day**: 7일 이내 `--hi`, 30일 이내 `--mid`, 그 외 `--fg-2`. 마감 지난 공고는 목록에서 접되 삭제하지 않는다(새 소식에서 참조).
-- **실거래 vs 매물 구분**: 실거래 블록에는 "과거 계약 통계, 매물 아님" 캡션을 고정 표기. 매물 딥링크는 외부 링크 아이콘 + `rel="noopener"`.
+- **실거래 vs 매물 구분**: 실거래 블록에는 "과거 계약 통계, 매물 아님" 캡션을 고정 표기.
+- **외부 링크는 예외 없이** `target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"` 를 건다(검수 P23).
+  대상 = 매물 딥링크 3개 · 공고 원문 · 정책 근거 출처 · 신선도 바의 원문 목록 · 새 소식의 출처 열기.
+  `noopener` 만으로는 Referer 로 Pages 주소가 새고, `noreferrer` 만으로는 구형 브라우저에서 `window.opener` 가 남는다. **셋을 한 세트로 쓴다.**
+  `href` 는 `https?://` 만 통과시키는 화이트리스트를 지나게 하고, 통과하지 못하면 링크를 만들지 않고 텍스트로만 적는다(수동 등록 파일의 `javascript:` 차단).
 - **예산 밖 항목은 기본 접힘.** 화면에는 "예산 밖 N건 접힘" 한 줄만 보이고, 카드는 hidden 컨테이너에 두어 인쇄·펼침 시 드러난다. 펼쳐진 카드에는 "예산 밖" 라벨이 반드시 붙는다(인쇄물에서 예산 내와 구분).
 - **빈 상태 문구 3종**을 구분: 데이터 없음 / 조건 미입력(입력 탭 유도) / 수집 실패(실패 시각·출처 표시).
 - 차트는 인라인 SVG만(역별 중위값 막대, 3개월 추세 라인). 지도 타일 금지 → 역 순서를 1호선 노선도식 가로 띠로 표현.
