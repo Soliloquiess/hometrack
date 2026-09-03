@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <법정동> 부곡동 </법정동><오피스텔>부곡OO오피스</오피스텔>
+        <보증금액>      500</보증금액><월세금액>     45</월세금액>
+        <전용면적>23.1</전용면적><층>5</층><건축년도>2019</건축년도>
+        <지역코드>26410</지역코드><계약년도>2026</계약년도><계약월>8</계약월><계약일>25</계약일>
+      </item>
+    </items>
+    <numOfRows>3</numOfRows><pageNo>1</pageNo><totalCount>1</totalCount>
+  </body>
+</response>

@@ -14,6 +14,15 @@
 | [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md) | 공공 API·정책 출처 조사 |
 | [`mockup/index.html`](mockup/index.html) | 디자인 목업(샘플 데이터, 더블클릭으로 열림) |
 
+## 실행
+```bash
+python collect.py --fixture   # 키 없이 오프라인 수집. data/fixtures/ 의 응답 샘플로 data/*.json 생성
+python collect.py             # 실수집. 환경변수 DATA_GO_KR_KEY 필요 (없으면 각 수집기를 skip 하고 직전 데이터 유지)
+python build.py               # data/*.json → site/index.html
+```
+Python 3.12 표준 라이브러리만 쓴다(설치할 것 없음). 키는 로컬에서는 환경변수(`export DATA_GO_KR_KEY=...`),
+GitHub Actions 에서는 저장소 Secrets `DATA_GO_KR_KEY` 로만 넣는다 — 코드·JSON·커밋에 남기지 않는다.
+
 ## 다른 PC에서 이어서 작업하기
 1. `git clone https://github.com/Soliloquiess/hometrack.git`
 2. 폴더에서 Claude Code 실행. `CLAUDE.md`와 `.claude/`(전용 에이전트 5개, 핸드오프 스킬)를 자동으로 읽는다.

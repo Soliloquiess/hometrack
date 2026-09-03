@@ -1,0 +1,211 @@
+{
+  "_about": "hometrack 설정. SPEC v1.2 §3-1 설정값 + §3-4 역↔법정동 매핑 + §3-2(D19) 배제 규칙 + 공급유형→정책 매핑. 수치를 코드·화면에 하드코딩하지 않는다.",
+
+  "base_station": "guseo",
+  "conversion_rate": 6.0,
+  "trade_months": 12,
+  "trend_months": 3,
+  "sample_min": 5,
+  "banjeonse_ratio": 240,
+  "deposit_hist_bucket": 500,
+
+  "sigungu_codes": ["26470", "26260", "26410"],
+  "_sigungu_codes_note": "실거래 시세 수집 대상(연제 26470 · 동래 26260 · 금정 26410). meta.config.sigungu_codes 로 복사된다. DATA_SOURCES §A-4 — 행정표준코드 원문과 1:1 대조 미완(⚠️).",
+
+  "busan_sigungu_codes": {
+    "중구": "26110",
+    "서구": "26140",
+    "동구": "26170",
+    "영도구": "26200",
+    "부산진구": "26230",
+    "동래구": "26260",
+    "남구": "26290",
+    "북구": "26320",
+    "해운대구": "26350",
+    "사하구": "26380",
+    "금정구": "26410",
+    "강서구": "26440",
+    "연제구": "26470",
+    "수영구": "26500",
+    "사상구": "26530",
+    "기장군": "26710"
+  },
+  "_busan_sigungu_codes_note": "공고 지역 필터·sigungu_name→sigungu_code 역인용용 전 구군 코드표. 시세 수집에는 sigungu_codes 3개만 쓴다.",
+
+  "stations": [
+    {
+      "id": "sicheong",
+      "name": "시청",
+      "gu": "연제구",
+      "dongs": ["연산동", "거제동"]
+    },
+    {
+      "id": "yeonsan",
+      "name": "연산",
+      "gu": "연제구",
+      "dongs": ["연산동", "거제동"]
+    },
+    {
+      "id": "gyodae",
+      "name": "교대",
+      "gu": "동래구",
+      "dongs": ["거제동", "온천동", "수민동"]
+    },
+    {
+      "id": "dongnae",
+      "name": "동래",
+      "gu": "동래구",
+      "dongs": ["수민동", "낙민동", "온천동", "명륜동"]
+    },
+    {
+      "id": "myeongnyun",
+      "name": "명륜",
+      "gu": "동래구",
+      "dongs": ["명륜동", "온천동", "낙민동"]
+    },
+    {
+      "id": "oncheonjang",
+      "name": "온천장",
+      "gu": "동래구",
+      "dongs": ["온천동", "명륜동", "사직동"]
+    },
+    {
+      "id": "busandaehak",
+      "name": "부산대",
+      "gu": "금정구",
+      "dongs": ["장전동", "온천동", "부곡동"]
+    },
+    {
+      "id": "jangjeon",
+      "name": "장전",
+      "gu": "금정구",
+      "dongs": ["장전동", "부곡동"]
+    },
+    {
+      "id": "guseo",
+      "name": "구서",
+      "gu": "금정구",
+      "dongs": ["구서동", "장전동", "부곡동"]
+    },
+    {
+      "id": "dusil",
+      "name": "두실",
+      "gu": "금정구",
+      "dongs": ["구서동", "남산동"]
+    },
+    {
+      "id": "namsan",
+      "name": "남산",
+      "gu": "금정구",
+      "dongs": ["남산동", "구서동"]
+    },
+    {
+      "id": "beomeosa",
+      "name": "범어사",
+      "gu": "금정구",
+      "dongs": ["청룡동", "남산동"]
+    },
+    {
+      "id": "nopo",
+      "name": "노포",
+      "gu": "금정구",
+      "dongs": ["노포동", "청룡동"]
+    }
+  ],
+  "_stations_note": "1호선 순서(시청→노포) 배열. 순서가 곧 '기준역까지 N정거장' 계산 근거(D18). dongs 는 법정동명이며 생활권 기준 수기 초안 — 거리 계산으로 만들지 않았다(§3-4). 인접 역 중복 매핑 허용(역별 건수 합 > 전체 건수는 정상). 🔴 사용자 검토 1회 필요(미결 8번).",
+
+  "supply_type_policy_map": {
+    "행복주택": "p_happy_house",
+    "통합공공임대": "p_integrated_public",
+    "통합공공임대주택": "p_integrated_public",
+    "국민임대": "p_national_rental",
+    "국민임대주택": "p_national_rental",
+    "럭키7하우스": "p_busan_lucky7"
+  },
+  "_supply_type_policy_map_note": "공고 supply_type(LH AIS_TP_CD_NM 등) → policies.json id 자동 부여(§3-2 linked_policy_id). id 체계는 docs/proposals/policies.json 을 따른다(p_happy_house 계열, p001 식 아님). 표에 없는 공급유형(공공임대·영구임대·장기전세·매입임대·전세임대·신혼희망타운)은 linked_policy_id: null → 화면에서 '조건부 — 자격 대조 정보 없음'. 신혼희망타운은 자격 기준이 행복주택과 다르므로 p_happy_house 로 연결하지 않는다. 정책 카탈로그가 늘면 여기에 추가한다.",
+
+  "exclusion_rules": [
+    { "keyword": "유주택", "input": "noHome", "match": "contains" },
+    { "keyword": "주택소유", "input": "noHome", "match": "contains" },
+    { "keyword": "자가소유", "input": "noHome", "match": "contains" },
+    { "keyword": "무주택세대구성원이아닌", "input": "noHome", "match": "contains" },
+    { "keyword": "세대주가아닌", "input": "householder", "match": "contains" },
+    { "keyword": "주거급여수급", "input": "housingBenefit", "match": "contains" }
+  ],
+  "_exclusion_rules_note": "D19. 공고 exclusions 원문(공백 제거 후 부분일치)이 keyword 에 걸리고 그 input 축의 사용자 입력이 배제 조건에 해당할 때만 '불가'. 표에 없는 exclusions 는 표시만 하고 판정에 쓰지 않는다. 초안이며 수동 등록 공고의 원문 표기를 보며 늘린다.",
+
+  "target_keywords": [
+    "신혼부부",
+    "예비신혼부부",
+    "신혼",
+    "신혼희망타운",
+    "신생아",
+    "혼인",
+    "행복주택",
+    "통합공공임대",
+    "국민임대",
+    "럭키7"
+  ],
+  "_target_keywords_note": "예비신혼부부 관련 공고를 화면에서 강조·필터하는 데 쓰는 표시용 키워드. collect.py 는 이 키워드로 공고를 버리지 않는다(정보 부재를 탈락으로 처리하지 않는다는 원칙).",
+
+  "lh": {
+    "list_endpoint": "https://apis.data.go.kr/B552555/lhLeaseNoticeInfo1/lhLeaseNoticeInfo1",
+    "detail_endpoint": "https://apis.data.go.kr/B552555/lhLeaseNoticeDtlInfo1/getLeaseNoticeDtlInfo1",
+    "list_url": "https://apply.lh.or.kr/lhapply/apply/wt/wrtanc/selectWrtancList.do?mi=1026",
+    "CNP_CD": "26",
+    "_CNP_CD_note": "⚠️미확인. DATA_SOURCES §E-1-3 — 15058530 페이지에 지역코드 열거표가 없다. 요청 샘플 CNP_CD=11(서울) 과 '광역시도 코드' 설명으로부터 행정표준 시도코드 관행(26=부산)을 추정한 값. 실호출로 확정해야 한다.",
+    "region_queries": [{ "CNP_CD": "26" }, {}],
+    "_region_queries_note": "지역 축이 시도 단위이고 CNP_CD_NM 은 '부산광역시' 또는 '전국' 만 온다. CNP_CD=26 하나로만 조회하면 '전국' 공고가 누락된다. '전국' 을 뜻하는 코드값이 미확인이므로 ① CNP_CD=26 ② CNP_CD 생략(옵션 파라미터) 두 번 조회하고, 응답을 accept_region_names 로 걸러 합친다(id 중복 제거).",
+    "accept_region_names": ["부산광역시", "부산", "전국"],
+    "_accept_region_names_note": "CNP_CD_NM 부분일치 화이트리스트. 여기에 걸리지 않는 지역의 공고는 버린다(전국 게시판 노이즈 방지).",
+    "UPP_AIS_TP_CD": ["06", "39"],
+    "_UPP_AIS_TP_CD_note": "06 임대주택 / 39 신혼희망타운 (D1).",
+    "PAN_SS": ["공고중", "접수중"],
+    "_PAN_SS_note": "공고상태 필터. '접수마감' 은 수집 대상에서 빼고, 이미 수집된 공고의 PAN_SS 가 접수마감이면 화면에서 마감으로 다룬다(D12).",
+    "PG_SZ": 100,
+    "lookahead_days": 365,
+    "_period_note": "목록 API 는 PAN_NT_ST_DT(공고게시일)·CLSG_DT(공고마감일)가 필수라 '전체 조회'가 없다. 게시일 창은 오늘−trade_months 개월 ~ 오늘, 마감일 창은 오늘 ~ 오늘+lookahead_days 로 넓게 잡아 놓치지 않게 한다. 날짜 형식은 YYYY.MM.DD(점 구분).",
+    "max_pages": 50,
+    "_max_pages_note": "폭주 방지 상한. ALL_CNT 기준 페이지 수가 이보다 크면 잘라내고 collectors[].note 에 남긴다.",
+    "_response_fields_note": "응답 항목은 SS_CODE/RS_DTTM/RNUM/UPP_AIS_TP_NM/AIS_TP_CD_NM/PAN_NM/CNP_CD_NM/PAN_SS/ALL_CNT/DTL_URL 10개뿐이며 날짜 필드가 없다. 따라서 자동수집분의 apply_start·apply_end·announced_at 은 null 이고 수동 등록으로만 채운다. PAN_ID 도 응답 필드가 아니라 DTL_URL 에서 파싱한다."
+  },
+  "lh_detail_confirmed": false,
+  "_lh_detail_confirmed_note": "상세 API(15057999) 응답에 임대보증금·월임대료·전용면적이 있는지 실호출 미확인(DATA_SOURCES §E-1-4). false 인 동안 collect.py 는 상세 API 를 호출하지 않고 LH 공고를 detail_level: 'meta_only' 로 유지한다. true 로 올리기 전에 SPEC §3-5 LH 절에 자동 승격 규칙이 먼저 추가되어야 한다.",
+
+  "myhome": {
+    "list_endpoint": null,
+    "_list_endpoint_note": "⚠️미확인. 데이터셋 15108420 페이지에 엔드포인트 URL·요청변수·응답결과 표가 노출되지 않는다(DATA_SOURCES §D-1·§E-5). 활용신청 후 첨부 '붙임1. 요청 파라미터 코드(공공주택 모집공고)_260701.xlsx' 로 확정한다. null 인 동안 collect.py 는 myhome 수집기를 skip 으로 남기고 계속 진행한다.",
+    "list_url": "https://www.myhome.go.kr/hws/portal/sch/selectRsdtRcritNtcList.do",
+    "params": {},
+    "_params_note": "확정 후 시도/시군구·공급유형 파라미터를 여기에 넣는다.",
+    "PG_SZ": 100,
+    "max_calls_per_run": 20,
+    "_max_calls_per_run_note": "개발계정 트래픽이 1,000건/일 — LH 계열(10,000건/일)의 1/10 이다. 하루 1회 실행 기준으로 이 수를 넘지 않게 페이징을 끊고 collectors[].note 에 남긴다."
+  },
+
+  "trades": {
+    "endpoints": {
+      "apt": "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent",
+      "villa": "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent",
+      "officetel": "https://apis.data.go.kr/1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent"
+    },
+    "_endpoints_note": "⚠️미확인. DATA_SOURCES §A-4 는 데이터셋 페이지(아파트 15126474 · 연립다세대 15126473 · 오피스텔 15126475)만 확보했고 엔드포인트 경로 원문을 대조하지 못했다. 위 경로는 국토부 실거래가 계열 관행값이다. 키 발급 후 1회 실호출로 확정한다.",
+    "max_pages": 200,
+    "_max_pages_note": "폭주 방지 상한. totalCount 기준 페이지 수가 이보다 크면 잘라내고 collectors[].note 에 남긴다.",
+    "fixture_num_of_rows": 3,
+    "_fixture_num_of_rows_note": "--fixture 전용. 1000 이면 fixture 한 파일로 항상 1페이지에 끝나 페이징 경로가 실행되지 않는다. 3 으로 낮춰 pageNo 순회(D15)를 오프라인에서도 태운다.",
+    "num_of_rows": 1000,
+    "_num_of_rows_note": "D15. 기본값 10 이라 페이징을 빼먹으면 구·월당 앞 10건만 집계되어 중위값·히스토그램이 통째로 틀어진다. pageNo 를 1부터 totalCount 초과까지 순회한다.",
+    "refetch_months": 2,
+    "_refetch_months_note": "계약 후 30일 이내 신고라 최근 구간은 계속 추가·정정된다. 당월·전월만 매일 재수집하고 그 이전은 캐시(data/trades_cache.json) 재사용. 첫 실행은 trade_months 전체 백필."
+  },
+
+  "notice_retain_days": 60,
+  "_notice_retain_days_note": "출처 목록에서 사라진 공고(disappeared: true)를 화면 문구 구분용으로 유지하는 기간. 지나면 notices.json 에서 잘라낸다(무한 누적 방지).",
+
+  "diff_history_days": 14,
+  "_diff_history_days_note": "data/diff_history.json 보관 일수(§3-6).",
+
+  "closing_soon_thresholds": [30, 7],
+  "_closing_soon_thresholds_note": "D12. 이번 수집에서 새로 이 창 안으로 들어온 공고만 snapshot_diff.closing_soon 에 넣는다. 탭2 고정 섹션(현재 D-30 전체)은 화면이 매일 재계산한다."
+}

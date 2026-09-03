@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <법정동> 장전동 </법정동><연립다세대>장전OO빌라</연립다세대>
+        <보증금액>    9,000</보증금액><월세금액>      0</월세금액>
+        <전용면적>49.5</전용면적><층>2</층><건축년도>2012</건축년도>
+        <지역코드>26410</지역코드><계약년도>2026</계약년도><계약월>9</계약월><계약일>4</계약일>
+      </item>
+      <item>
+        <법정동> 부곡동 </법정동><연립다세대>부곡XX타운</연립다세대>
+        <보증금액>   11,000</보증금액><월세금액>      0</월세금액>
+        <전용면적>58.2</전용면적><층>3</층><건축년도>2018</건축년도>
+        <지역코드>26410</지역코드><계약년도>2026</계약년도><계약월>9</계약월><계약일>7</계약일>
+      </item>
+    </items>
+    <numOfRows>3</numOfRows><pageNo>1</pageNo><totalCount>2</totalCount>
+  </body>
+</response>

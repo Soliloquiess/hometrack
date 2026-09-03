@@ -1,0 +1,25 @@
+data/fixtures/ — `python collect.py --fixture` 가 실네트워크 대신 읽는 API 응답 형태 샘플 (SPEC §3-5, D23)
+
+목적: 키 발급 전에도 파싱·집계·병합·diff 경로를 실수집과 같게 태운다.
+      fixture 산출물의 collectors[].note 에는 `fixture` 가 붙어 실데이터와 구분된다.
+
+파일명 규칙
+  trades_{apt|villa|officetel}_{LAWD_CD}_{DEAL_YMD}.xml      실거래 1페이지
+  trades_{...}_{...}_{DEAL_YMD}_p{N}.xml                     실거래 N(≥2)페이지
+  lh_notice_list.json                                        LH 분양임대공고문 목록 (15058530)
+  lh_notice_detail.json                                      LH 상세 (15057999) — lh_detail_confirmed=true 일 때만
+  myhome_notice_list.json                                    마이홈 공공주택 모집공고 (15108420)
+
+없는 파일을 요청하면 collect.py 가 "정상 + 0건" 응답을 합성해 넣는다.
+fixture 모드의 실거래 대상 구간은 오늘 날짜에서 계산하지 않고 위 파일명에서 읽는다
+(날짜가 흘러도 같은 fixture 가 같은 결과를 내야 "2회 연속 신규 0건" 검수가 성립한다).
+
+필드명 근거와 미확인 표시
+  - 실거래(§A-4): 데이터셋 페이지 요약에서 보증금·월세·전용면적·법정동·층·건축년도가 확인됐으나
+    응답 태그명의 국문/영문 표기를 원문 스키마와 대조하지 못했다(⚠️미확인).
+    아래 fixture 는 국문 표기를 쓰고, collect.py 의 TRADE_ALIASES 가 영문 표기도 함께 받는다.
+  - LH(§E-1-2): 응답 10개 필드(SS_CODE/RS_DTTM/RNUM/UPP_AIS_TP_NM/AIS_TP_CD_NM/PAN_NM/
+    CNP_CD_NM/PAN_SS/ALL_CNT/DTL_URL)는 페이지 원문에서 확인. 봉투(resHeader/dsList) 형태는
+    LH 계열 관행이며 ⚠️미확인이라 collect.py 는 구조를 가정하지 않고 PAN_NM 을 가진 객체를 훑는다.
+  - 마이홈(§D-1·§E-5): 요청·응답 표가 페이지에 없어 스키마 전체가 ⚠️미확인.
+    따라서 fixture 는 "정상 응답 · 0건" 만 담고, 실호출 원문은 data/raw_myhome_last.json 에 보관한다.

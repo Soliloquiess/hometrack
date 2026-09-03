@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <법정동> 구서동 </법정동><연립다세대>구서OO주택</연립다세대>
+        <보증금액>    1,000</보증금액><월세금액>     50</월세금액>
+        <전용면적>39.6</전용면적><층>1</층><건축년도>2005</건축년도>
+        <지역코드>26410</지역코드><계약년도>2026</계약년도><계약월>8</계약월><계약일>14</계약일>
+      </item>
+    </items>
+    <numOfRows>3</numOfRows><pageNo>1</pageNo><totalCount>1</totalCount>
+  </body>
+</response>

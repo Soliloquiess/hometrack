@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <법정동> 연산동 </법정동><아파트>연산OO아파트</아파트>
+        <보증금액>   28,000</보증금액><월세금액>      0</월세금액>
+        <전용면적>84.8</전용면적><층>14</층><건축년도>2016</건축년도>
+        <지역코드>26470</지역코드><계약년도>2026</계약년도><계약월>9</계약월><계약일>2</계약일>
+      </item>
+      <item>
+        <법정동> 거제동 </법정동><아파트>거제XX시티</아파트>
+        <보증금액>   33,000</보증금액><월세금액>      0</월세금액>
+        <전용면적>110.3</전용면적><층>21</층><건축년도>2020</건축년도>
+        <지역코드>26470</지역코드><계약년도>2026</계약년도><계약월>9</계약월><계약일>4</계약일>
+      </item>
+    </items>
+    <numOfRows>3</numOfRows><pageNo>1</pageNo><totalCount>2</totalCount>
+  </body>
+</response>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <법정동> 구서동 </법정동><아파트>구서XX타운</아파트>
+        <보증금액>   20,000</보증금액><월세금액>      0</월세금액>
+        <전용면적>114.2</전용면적><층>15</층><건축년도>1999</건축년도>
+        <지역코드>26410</지역코드><계약년도>2026</계약년도><계약월>9</계약월><계약일>5</계약일>
+      </item>
+      <item>
+        <법정동> 구서동 </법정동><아파트>구서OO아파트</아파트>
+        <보증금액>   13,000</보증금액><월세금액>      0</월세금액>
+        <전용면적>59.9</전용면적><층>2</층><건축년도>2008</건축년도>
+        <지역코드>26410</지역코드><계약년도>2026</계약년도><계약월>9</계약월><계약일>8</계약일>
+      </item>
+    </items>
+    <numOfRows>3</numOfRows><pageNo>2</pageNo><totalCount>5</totalCount>
+  </body>
+</response>
