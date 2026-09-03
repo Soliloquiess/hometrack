@@ -12,7 +12,7 @@
 | 순서 | 파일 | 내용 |
 |---|---|---|
 | 1 | `CLAUDE.md` (이 파일) | 원칙·워크플로·현재 상태 |
-| 2 | `docs/SPEC.md` | 화면 5개·판정 규칙·JSON 스키마·검수 기준 22항목. **모든 개발의 기준 문서** |
+| 2 | `docs/SPEC.md` | 화면 5개·판정 규칙·JSON 스키마·검수 기준 Q1~Q56. **모든 개발의 기준 문서** |
 | 3 | `DESIGN.md` | 디자인 토큰·셸·고유 규칙. UI 를 만들거나 고칠 때 Strict Rule |
 | 4 | `docs/DESIGN_SPEC.md` + `mockup/index.html` | 화면 설계서와 동작하는 목업(샘플 데이터). 개발은 이 목업의 구조·클래스명을 승계 |
 | 5 | `docs/DATA_SOURCES.md` | 공공 API·정책 출처 조사(출처 URL·확인일 병기). 정책 수치의 근거 |
@@ -50,7 +50,7 @@ docs/        명세·설계·조사·검수·QA 증적
 | `ht-researcher` | 공공 API·정책 수치 조사(웹) | `docs/DATA_SOURCES.md`, `data/policies.json`·`income_tables.json` 값 제안 |
 | `ht-designer` | 화면 설계·목업·빌드 템플릿 CSS | `docs/DESIGN_SPEC.md`, `mockup/`, `build.py` 의 템플릿/CSS 부분 |
 | `ht-developer` | `collect.py`·`build.py`·워크플로 구현, 빌드 실행 | 코드 전반. `site/` 는 빌드로만 |
-| `ht-qa` | SPEC §4 22항목 검수, 재현·증적 | `docs/qa/` 만 |
+| `ht-qa` | SPEC §4 Q1~Q56 검수, 재현·증적 | `docs/qa/` 만 |
 
 메인 세션은 팀 리더로서 분석·분배·조율만 한다. 순서: (필요 시) 조사 → 구현 → **QA(실패 시 구현으로 재순환)** → 상태 갱신 → 사용자 보고.
 2개 이상 독립 작업은 병렬. 사소한 단일 수정·질의응답은 직접 처리해도 된다.
@@ -96,7 +96,7 @@ UI·HTML을 쓰거나 고칠 때는 **먼저 루트 `DESIGN.md` 를 읽고** Str
 3. `data/policies.json`·`income_tables.json` — DATA_SOURCES 값 이관, `confidence`·`year_label` 포함
 4. `build.py` — 목업 `mockup/index.html` 의 구조·클래스·`const DATA` 스키마를 승계해 템플릿화. `data-mock-only` 3곳 제거
 5. `.github/workflows/daily.yml` — cron `0 22 * * *`(UTC = 07:00 KST) → collect → build → commit → Pages. 저장소 Settings → Pages → Source = GitHub Actions
-6. `ht-qa` 로 SPEC §4 22항목 검수(20번 "2회 연속 수집 신규 0건" 포함)
+6. `ht-qa` 로 SPEC §4 Q1~Q56 검수(20번 "2회 연속 수집 신규 0건" 포함)
 
 ### 잔여 조사(미확인)
 임대차 신고 금액 하한 / 럭키7하우스 2026 소득기준 / 1·3~6인 가구 130~140% 원문 / 민간 플랫폼 딥링크 실제 쿼리 문법(목업은 플레이스홀더)
