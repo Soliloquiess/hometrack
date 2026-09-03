@@ -1,0 +1,354 @@
+[
+  {
+    "_proposal_meta": {
+      "written_by": "ht-researcher",
+      "written_at": "2026-09-03",
+      "target": "data/policies.json",
+      "spec_ref": "docs/SPEC.md §3-6 policies.json + REVIEW_predev P2(pct_adjust_by_household) / P3(pending_change)",
+      "read_me": [
+        "이 배열의 첫 원소는 메타 주석이다. data/policies.json 으로 이관할 때 제거한다.",
+        "모르는 값은 null. null 이면 SPEC §3-2 규칙대로 해당 기준은 판정하지 않고 조건부가 된다.",
+        "criteria.income.pct_adjust_by_household 는 REVIEW P2 로 신설 제안된 필드다. 행복주택·국민임대·통합공공임대 세 유형 모두 +20%p(1인)/+10%p(2인) 가산이 원문으로 확인됐다.",
+        "pending_change 는 REVIEW P3 대응 필드다. effective 가 'unknown' 이면 화면에 '완화 예정 — 확정 시 갱신' 을 표시하고, 판정에는 현행값(criteria)만 쓴다.",
+        "금액 단위는 SPEC 을 따라 만원. 소득 basis 가 annual_krw 인 경우 income.amount 도 만원.",
+        "source_hash / last_notified_hash 는 collect.py 가 채운다. 여기서는 null."
+      ]
+    }
+  },
+  {
+    "id": "p_happy_house",
+    "name": "행복주택 (신혼부부·예비신혼부부)",
+    "provider": "LH · 지방공사(부산도시공사)",
+    "category": "supply",
+    "confidence": "official",
+    "criteria": {
+      "marriage_within_months": 84,
+      "pre_marriage_allowed": true,
+      "pre_marriage_within_months": null,
+      "no_home_required": true,
+      "income": {
+        "basis": "urban_worker_pct",
+        "pct": 100,
+        "pct_dual": 120,
+        "pct_adjust_by_household": { "1": 20, "2": 10 },
+        "amount": null,
+        "note": "원문: \"해당 세대 월평균 소득 합계가 전년도 도시근로자 가구원수별 가구당 월평균 소득의 100% 이하(맞벌이 120% 이하)\" + \"계층별 소득기준에 1인 가구 20%p, 2인 가구 10%p 각각 가산한 소득기준 적용\". 따라서 2인 가구 예비신혼부부는 110%(맞벌이 130%)."
+      },
+      "total_asset_limit": 34500,
+      "net_asset_limit": null,
+      "car_value_limit": 4542,
+      "savings_months_min": null,
+      "savings_count_min": null,
+      "age_max": null,
+      "region": null
+    },
+    "benefit": {
+      "summary": "시세보다 낮은 임대료의 공공임대. 자녀 없으면 최대 10년, 자녀 1명 이상이면 최대 14년 거주",
+      "limit_amount": null,
+      "rate_note": null
+    },
+    "pending_change": {
+      "summary": "2026-06-09 관계부처 합동 「결혼 친화형 제도개선 추진방안」 — 신혼부부 맞벌이 소득기준 상향. 보도상 2인 가구 기준 월 763만원 → 939만원(=도시근로자 2인 130% → 160%, 즉 기본 맞벌이 비율 120% → 150%). 정부 발표문 표현은 \"신혼부부의 공공임대주택 입주 소득 기준을 1인 가구(미혼 청년) 대비 2배 수준으로 높인다\". 2026-09-03 현재 마이홈포털 행복주택 입주자격 원문은 여전히 100%(맞벌이 120%) — 미시행.",
+      "source_url": "https://www.korea.kr/news/policyNewsView.do?newsId=148966196",
+      "effective": "unknown"
+    },
+    "source_url": "https://www.myhome.go.kr/hws/portal/cont/selectHappyHouseView.do",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "자산기준은 (예비)신혼부부·한부모가족 계층 값(총자산 3억 4,500만원 / 자동차 4,542만원, 2026년도 적용기준). 청년 계층은 총자산 2억 5,100만원이므로 계층을 섞지 말 것. 청약통장 요건은 원문에서 확인하지 못해 null."
+  },
+  {
+    "id": "p_integrated_public",
+    "name": "통합공공임대주택 (신혼부부 우선공급)",
+    "provider": "LH · 지방공사",
+    "category": "supply",
+    "confidence": "official",
+    "criteria": {
+      "marriage_within_months": 84,
+      "pre_marriage_allowed": true,
+      "pre_marriage_within_months": null,
+      "no_home_required": true,
+      "income": {
+        "basis": "median_pct",
+        "pct": 100,
+        "pct_dual": null,
+        "pct_adjust_by_household": { "1": 20, "2": 10 },
+        "amount": null,
+        "note": "원문: 우선공급 \"기준 중위소득 100% 이하 (1인 120%, 2인 110%)\" / 일반공급 \"기준 중위소득의 150퍼센트(가구원 수가 1명인 경우에는 170퍼센트, 2명인 경우에는 160퍼센트로 한다) 이하\". 맞벌이 비율은 원문에서 확정하지 못해 pct_dual = null(→ pct 로 판정, 조건부). 신혼·한부모 맞벌이 180%/2인 190% 라는 값이 같은 페이지 추출에서 나왔으나 우선공급인지 일반공급인지 구분되지 않아 채택하지 않았다."
+      },
+      "total_asset_limit": 34500,
+      "net_asset_limit": null,
+      "car_value_limit": 4542,
+      "savings_months_min": null,
+      "savings_count_min": null,
+      "age_max": null,
+      "region": null
+    },
+    "benefit": {
+      "summary": "소득 구간별 차등 임대료의 공공임대. 우선공급(중위 100% 이하)과 일반공급(중위 150% 이하)으로 나뉜다",
+      "limit_amount": null,
+      "rate_note": null
+    },
+    "pending_change": {
+      "summary": "2026-06-09 「결혼 친화형 제도개선 추진방안」 — 통합공공임대 맞벌이 신혼부부 소득기준 상향. 보도상 우선공급 월 462만원 → 630만원, 일반공급 월 798만원 → 924만원. 2026-09-03 현재 마이홈포털 원문은 우선공급 100%·일반공급 150% 그대로 — 미시행.",
+      "source_url": "https://www.korea.kr/news/policyNewsView.do?newsId=148966196",
+      "effective": "unknown"
+    },
+    "source_url": "https://www.myhome.go.kr/hws/portal/cont/selectIntegratedPubRentalHouseView.do",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "판정 지표가 기준중위소득(median_pct)이다. income_tables.median_income 의 120/150 칸은 고시가 100%만 공표해 연산값 → SPEC 폴백 규칙상 '근사값' 표시 대상. 청약통장 요건(가입 6개월·6회, 회당 인정 25만원)은 1차 조사에서 2차 자료로만 확인돼 null 로 둔다."
+  },
+  {
+    "id": "p_national_rental",
+    "name": "국민임대주택 (신혼부부 우선공급)",
+    "provider": "LH · 지방공사",
+    "category": "supply",
+    "confidence": "official",
+    "criteria": {
+      "marriage_within_months": 84,
+      "pre_marriage_allowed": true,
+      "pre_marriage_within_months": null,
+      "no_home_required": true,
+      "income": {
+        "basis": "urban_worker_pct",
+        "pct": 70,
+        "pct_dual": null,
+        "pct_adjust_by_household": { "1": 20, "2": 10 },
+        "amount": null,
+        "note": "원문: \"전년도 도시근로자 가구원수별 가구당 월평균 소득의 70% 이하여야 합니다. (1인 가구는 90%, 2인 가구는 80% 이하)\". LH청약플러스 국민임대 입주자격 페이지 확인 결과 **신혼부부 우선공급에 별도의 소득 % 는 없다** — 일반 기준(70%/1인 90%/2인 80%)을 그대로 적용하고 입주자 선정만 점수제로 한다. 1차 조사(§B-2)의 '신혼부부 우선공급 130%(맞벌이 140%)' 는 국민임대가 아닌 다른 유형(분양 신혼부부 특별공급 계열)의 수치로 보이므로 채택하지 않았다. 50㎡ 미만 우선공급은 50%(1인 70%, 2인 60%) 이하."
+      },
+      "total_asset_limit": 34500,
+      "net_asset_limit": null,
+      "car_value_limit": 4542,
+      "savings_months_min": 6,
+      "savings_count_min": 6,
+      "age_max": null,
+      "region": null
+    },
+    "benefit": {
+      "summary": "전용 85㎡ 이하 장기 공공임대. 시세보다 낮은 임대료",
+      "limit_amount": null,
+      "rate_note": null
+    },
+    "pending_change": null,
+    "source_url": "https://www.myhome.go.kr/hws/portal/cont/selectNationalRentalHouseView.do",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "**1차 조사 §B-2 의 자동차가액 3,708만원은 오류다.** 마이홈포털 국민임대 원문과 LH청약플러스 모두 4,542만원(총자산 3억 4,500만원)이다. 청약저축 요건은 전용면적별로 다르다 — 50㎡ 미만은 불필요(거주지 순위제), 50㎡ 이상은 1순위 2년·24회 / 2순위 6개월·6회. 여기에는 2순위 값을 넣었다."
+  },
+  {
+    "id": "p_beotimok_newlywed",
+    "name": "신혼부부전용 전세자금 (버팀목)",
+    "provider": "주택도시기금 (국토교통부)",
+    "category": "loan",
+    "confidence": "official",
+    "criteria": {
+      "marriage_within_months": 84,
+      "pre_marriage_allowed": true,
+      "pre_marriage_within_months": 3,
+      "no_home_required": true,
+      "income": {
+        "basis": "annual_krw",
+        "pct": null,
+        "pct_dual": null,
+        "pct_adjust_by_household": null,
+        "amount": 7500,
+        "note": "원문: \"대출신청인과 배우자의 합산 총소득이 연간 7.5천만원 이하\". 부부합산 연소득 상한이며 도시근로자·중위소득 지표가 아니다."
+      },
+      "total_asset_limit": null,
+      "net_asset_limit": 34500,
+      "car_value_limit": null,
+      "savings_months_min": null,
+      "savings_count_min": null,
+      "age_max": null,
+      "region": null
+    },
+    "benefit": {
+      "summary": "무주택 세대주 대상 전세자금 대출. 대상주택 임차보증금 수도권 4억원 / 수도권 외 3억원 이하. 대출한도 수도권 2.5억원 / 수도권 외 1.6억원 이내. 대출기간 2년(최장 10년)",
+      "limit_amount": 16000,
+      "rate_note": "연 1.9% ~ 3.3% (소득·보증금 구간별)"
+    },
+    "pending_change": {
+      "summary": "2026-06-09 「결혼 친화형 제도개선 추진방안」 — 혼인 후 적용되는 전세자금대출 가산금리를 \"현행 0.3%p에서 0.15%p로\" 인하. 시행 시점은 발표문에 없음.",
+      "source_url": "https://www.korea.kr/news/policyNewsView.do?newsId=148966417",
+      "effective": "unknown"
+    },
+    "source_url": "https://nhuf.molit.go.kr/FP/FP05/FP0502/FP05020401.jsp",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "**1차 조사 §B-3 값 3건이 정정됐다.** (a) 순자산 3.37억 → **3.45억원(2026년 기준, 가계금융복지조사 소득 3분위 전체가구 평균값)**, (b) 대상주택 보증금 5억/4억 → **4억(수도권)/3억(수도권 외)**, (c) 대출한도 2.4억 → **2.5억(수도권)/1.6억(수도권 외)**. 부산은 수도권 외이므로 limit_amount = 16,000만원."
+  },
+  {
+    "id": "p_didimdol_newlywed",
+    "name": "신혼부부 디딤돌 구입자금",
+    "provider": "주택도시기금 (국토교통부)",
+    "category": "loan",
+    "confidence": "official",
+    "criteria": {
+      "marriage_within_months": 84,
+      "pre_marriage_allowed": true,
+      "pre_marriage_within_months": null,
+      "no_home_required": true,
+      "income": {
+        "basis": "annual_krw",
+        "pct": null,
+        "pct_dual": null,
+        "pct_adjust_by_household": null,
+        "amount": 8500,
+        "note": "부부합산 연소득 8,500만원 이하 (신혼가구 기준). 1차 조사에서 마이홈포털 원문 인용 성공."
+      },
+      "total_asset_limit": null,
+      "net_asset_limit": 51100,
+      "car_value_limit": null,
+      "savings_months_min": null,
+      "savings_count_min": null,
+      "age_max": null,
+      "region": null
+    },
+    "benefit": {
+      "summary": "무주택 세대주 주택 구입자금 대출. 신혼가구 3.2억원 이내 (LTV 70%, DTI 60%)",
+      "limit_amount": 32000,
+      "rate_note": "연 2.85% ~ 4.15% (신혼가구 우대금리 0.2%p 적용 시 하향)"
+    },
+    "pending_change": null,
+    "source_url": "https://www.myhome.go.kr/hws/portal/cont/selectSteppingStoneLoanView.do",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "1차 조사(§B-4)에서 마이홈포털 원문 직접 인용에 성공한 값이며 2차 조사에서 재대조하지 않았다. 순자산 5.11억원은 2026년도 기준(가계금융복지조사 소득 4분위 전체가구 평균값 연동)."
+  },
+  {
+    "id": "p_newborn_jeonse",
+    "name": "신생아 특례 전세자금 (버팀목)",
+    "provider": "주택도시기금 (국토교통부)",
+    "category": "loan",
+    "confidence": "official",
+    "criteria": {
+      "marriage_within_months": null,
+      "pre_marriage_allowed": false,
+      "pre_marriage_within_months": null,
+      "no_home_required": true,
+      "income": {
+        "basis": "annual_krw",
+        "pct": null,
+        "pct_dual": null,
+        "pct_adjust_by_household": null,
+        "amount": 13000,
+        "note": "부부합산 연 1.3억원 이하. 부부 각각 소득이 있는 맞벌이는 합산 2억원 이하(부부 각 1.3억원 이하). 혼인 여부가 아니라 **대출접수일 기준 2년 내 출산·입양**(2023-01-01 이후 출생아)이 자격 요건이므로 marriage_within_months 는 해당 없음(null)."
+      },
+      "total_asset_limit": null,
+      "net_asset_limit": 34500,
+      "car_value_limit": null,
+      "savings_months_min": null,
+      "savings_count_min": null,
+      "age_max": null,
+      "region": null
+    },
+    "benefit": {
+      "summary": "2년 내 출산·입양 가구 전세자금 대출. 호당 2.4억원 이내(또는 전세금 80% 이내 중 낮은 금액). 임대차계약 체결 + 보증금 5% 이상 지급 필요",
+      "limit_amount": 24000,
+      "rate_note": "연 1.30% ~ 4.30% (지방 소재 주택 0.2%p 인하, 추가 출산 시 특례기간 연장)"
+    },
+    "pending_change": {
+      "summary": "2026-06-09 「결혼 친화형 제도개선 추진방안」에 \"신생아 특별공급 신설\" 이 포함됐다. 이는 임대·분양 특별공급 신설 건이며 본 대출상품의 조건 변경은 발표문에서 확인되지 않았다. 또한 '2026년부터 혼인신고 없는 사실혼 출산부부도 대상 포함' 은 2차 자료에서만 확인돼 미검증 상태다.",
+      "source_url": "https://www.korea.kr/news/policyNewsView.do?newsId=148966196",
+      "effective": "unknown"
+    },
+    "source_url": "https://www.myhome.go.kr/hws/portal/cont/selectBabySpecialCaseCrutchLoneView.do",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "1차 조사(§B-5)에서 마이홈포털 원문 직접 인용 성공. 2차 조사에서 재대조하지 않았다. 구입자금(디딤돌) 버전은 순자산 5.11억 / 한도 4억 / 금리 1.80~4.50% 로 별도 정책이다."
+  },
+  {
+    "id": "p_busan_newlywed_loan",
+    "name": "부산광역시 신혼부부 주택융자 및 대출이자 지원사업",
+    "provider": "부산광역시 · 부산은행",
+    "category": "subsidy",
+    "confidence": "official",
+    "criteria": {
+      "marriage_within_months": 84,
+      "pre_marriage_allowed": true,
+      "pre_marriage_within_months": 3,
+      "no_home_required": true,
+      "income": {
+        "basis": "annual_krw",
+        "pct": null,
+        "pct_dual": null,
+        "pct_adjust_by_household": null,
+        "amount": 13000,
+        "note": "부부합산 연 1억 3,000만원 이하. 부산시 자체 사업이라 도시근로자·중위소득 지표를 쓰지 않는다."
+      },
+      "total_asset_limit": null,
+      "net_asset_limit": null,
+      "car_value_limit": null,
+      "savings_months_min": null,
+      "savings_count_min": null,
+      "age_max": null,
+      "region": "부산광역시"
+    },
+    "benefit": {
+      "summary": "전세자금 대출 최대 2억원(임차보증금 90% 이내) + 대출이자 지원. 대출기간 기본 2년·최대 10년. 연간 1,500세대 규모 공고제. 신청은 부산은행 모바일뱅킹 사전접수",
+      "limit_amount": 20000,
+      "rate_note": "본인 부담 대출금리 최대 연 2%"
+    },
+    "pending_change": null,
+    "source_url": "https://www.busan.go.kr/childcare/childcare010105",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "1차 조사(§B-6)에서 부산시 공식 페이지 직접 인용 성공. 2차 조사에서 재대조하지 않았다. 공고제이므로 접수기간·세대수는 회차별 공고 확인 필요."
+  },
+  {
+    "id": "p_busan_lucky7",
+    "name": "부산광역시 신혼부부 럭키7하우스",
+    "provider": "부산광역시 (LH·부산도시공사 매입임대·행복주택 연계)",
+    "category": "subsidy",
+    "confidence": "secondary",
+    "criteria": {
+      "marriage_within_months": 84,
+      "pre_marriage_allowed": true,
+      "pre_marriage_within_months": null,
+      "no_home_required": true,
+      "income": {
+        "basis": "urban_worker_pct",
+        "pct": 100,
+        "pct_dual": 120,
+        "pct_adjust_by_household": null,
+        "amount": null,
+        "note": "2025년 제1차(신혼신생아 매입임대주택Ⅱ) 공고 기준 \"전년도 도시근로자 가구원수별 가구당 월평균소득 소득기준 100% 이하(맞벌이의 경우 120% 이하)\" — **2차 자료(welfarehello 정책 정리)에서만 확인**. 2026년 회차 공고 원문은 확보하지 못했다. 과거 회차에는 70%(맞벌이 80%) 였던 시기가 있어 **회차별로 달라지는 값이다.** 1인/2인 가산 적용 여부도 공고문에서 확인하지 못해 null."
+      },
+      "total_asset_limit": null,
+      "net_asset_limit": null,
+      "car_value_limit": null,
+      "savings_months_min": null,
+      "savings_count_min": null,
+      "age_max": null,
+      "region": "부산광역시"
+    },
+    "benefit": {
+      "summary": "매입임대주택·행복주택의 임대보증금 대출이자 + 월임대료를 최대 7년 지원(기본 6년 + 자녀 출생 시 1년 연장). 2026년까지 300호 공급 목표. 회차별 공고제",
+      "limit_amount": null,
+      "rate_note": null
+    },
+    "pending_change": null,
+    "source_url": "https://www.busan.go.kr/depart/house0203",
+    "content_selector": null,
+    "source_hash": null,
+    "last_notified_hash": null,
+    "verified_at": "2026-09-03",
+    "note": "**confidence = secondary 이므로 SPEC 원칙 9 에 따라 이 정책은 '불가' 판정을 낼 수 없다(조건부까지만).** busan.go.kr/depart/house0203 은 2026-09-03 재열람에서도 본문이 렌더되지 않고 메뉴만 노출됐다(JS 렌더 추정) → content_selector 기반 변경 감지 대상으로 부적합. 회차 공고 원문은 부산시 고시공고(busan.go.kr/nbgosi) 또는 BMC청약센터(apply.bmc.busan.kr)에서 회차마다 확인해야 한다. 문의: 부산광역시 주택정책과 051-888-3532 / 3534."
+  }
+]
