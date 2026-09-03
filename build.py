@@ -185,6 +185,12 @@ ENUM_ID_BASIS = {"notice_no", "composite"}
 ENUM_CLOSED_REASON = {"apply_end", "disappeared", "notice_status"}
 ENUM_HOUSING_TYPE = {"apt", "villa", "officetel"}
 ENUM_DEAL_TYPE = {"jeonse", "banjeonse", "wolse"}
+ENUM_FAILURE_STATUS = {"fail", "skip"}
+
+# D19 — 화면이 실제로 판정하는 입력 축. 목업 `EXCL_INPUT` 의 키와 같아야 한다
+# (mockup/index.html 의 `var EXCL_INPUT = { noHome: …, householder: … }`).
+# 여기에 없는 축을 가리키는 exclusion_rules 는 영구히 매칭되지 않으므로 경고한다(D20 방식).
+EXCLUSION_INPUT_AXES = {"noHome", "householder"}
 
 
 def _enum(report: Report, where: str, value, allowed: set, required: bool = True) -> None:
@@ -196,6 +202,21 @@ def _enum(report: Report, where: str, value, allowed: set, required: bool = True
 
 def validate_schema(data: dict, report: Report) -> None:
     meta = data["meta"]
+
+    # --- meta.config.exclusion_rules (D19) ---
+    for i, rule in enumerate(meta.get("config", {}).get("exclusion_rules") or []):
+        where = "meta.config.exclusion_rules[%d]" % i
+        if not isinstance(rule, dict):
+            report.error("%s 가 객체가 아니다" % where)
+            continue
+        if not rule.get("keyword"):
+            report.error("%s.keyword 가 없다" % where)
+        axis = rule.get("input")
+        if axis not in EXCLUSION_INPUT_AXES:
+            report.warn(
+                "%s.input=%r 가 화면 판정 축 %s 에 없다 — 이 규칙은 영구히 매칭되지 않는다"
+                " (D19: 축을 추가하거나 규칙을 지운다)"
+                % (where, axis, sorted(EXCLUSION_INPUT_AXES)))
 
     # --- meta.collectors ---
     collectors = meta.get("collectors")
@@ -301,8 +322,13 @@ def validate_schema(data: dict, report: Report) -> None:
                 _enum(report, where + ".closed_notices[].reason", c.get("reason"),
                       ENUM_CLOSED_REASON, required=False)
         for c in d.get("collector_failures") or []:
-            if isinstance(c, dict) and not c.get("key"):
+            if not isinstance(c, dict):
+                continue
+            if not c.get("key"):
                 report.error("%s.collector_failures[] 에 key 가 없다(D8)" % where)
+            # SPEC §3-6 필수 — 화면이 '실패'와 '건너뜀' 문구를 구분할 근거
+            _enum(report, "%s.collector_failures[%s].status" % (where, c.get("key")),
+                  c.get("status"), ENUM_FAILURE_STATUS)
 
 
 URL_KEYS = ("source_url", "list_url", "DTL_URL")

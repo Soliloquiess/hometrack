@@ -23,3 +23,12 @@ fixture 모드의 실거래 대상 구간은 오늘 날짜에서 계산하지 �
     LH 계열 관행이며 ⚠️미확인이라 collect.py 는 구조를 가정하지 않고 PAN_NM 을 가진 객체를 훑는다.
   - 마이홈(§D-1·§E-5): 요청·응답 표가 페이지에 없어 스키마 전체가 ⚠️미확인.
     따라서 fixture 는 "정상 응답 · 0건" 만 담고, 실호출 원문은 data/raw_myhome_last.json 에 보관한다.
+
+오류 봉투 샘플 (DEF-1 · DEF-2 재현 · `--fixture-scenario` 가 읽는다)
+  error_trades_auth.xml              data.go.kr 표준 오류 봉투(OpenAPI_ServiceResponse/cmmMsgHeader/returnAuthMsg)
+  error_trades_no_result_code.xml    정상 봉투처럼 보이지만 resultCode 가 없는 응답
+  error_trades_count_mismatch.xml    totalCount 2 인데 item 1건 — 응답 구조 불일치
+  error_lh_auth.json                 LH 인증 실패 봉투(SS_CODE:"N")
+  error_lh_empty.json                SS_CODE:"Y" 인데 ALL_CNT 6 · dsList 0건 — 봉투 구조 변경
+이 파일들은 `trades_*.xml` 이름 규칙 밖이므로 정상 fixture 수집 대상에 섞이지 않는다.
+  error_lh_zero.json                 봉투는 정상(SS_CODE:"Y" · ALL_CNT 0)인데 0건 — 직전 공고가 있으면 마감 판정을 보류한다(DEF-1 ③)

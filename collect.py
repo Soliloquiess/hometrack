@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import os
@@ -157,8 +158,10 @@ def detect_format(path, default_indent=2):
     try:
         raw = path.read_bytes()
     except OSError:
-        return None, default_indent
-    newline = "\r\n" if b"\r\n" in raw else None
+        return "\n", default_indent
+    # LF 전용 파일에 None 을 돌려주면 open(newline=None) 이 Windows 에서 \n → \r\n 으로
+    # 번역해 파일 전체가 CRLF 로 재기록된다 (DEF-9). 감지한 줄바꿈을 그대로 돌려준다.
+    newline = "\r\n" if b"\r\n" in raw else "\n"
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -291,6 +294,19 @@ class CollectorRun:
 # 3. HTTP / fixture 전송 계층
 # ---------------------------------------------------------------------------
 
+# --fixture-scenario — 오류 봉투 재현 경로를 코드로 고정한다 (DEF-1 · DEF-2).
+# 값 = {fixture 파일명 glob: 대체할 fixture 파일명}
+FIXTURE_SCENARIOS = {
+    "normal": {},
+    "trades_error": {"trades_*.xml": "error_trades_auth.xml"},
+    "trades_no_result_code": {"trades_*.xml": "error_trades_no_result_code.xml"},
+    "trades_count_mismatch": {"trades_*.xml": "error_trades_count_mismatch.xml"},
+    "lh_error": {"lh_notice_list.json": "error_lh_auth.json"},
+    "lh_empty": {"lh_notice_list.json": "error_lh_empty.json"},
+    "lh_zero": {"lh_notice_list.json": "error_lh_zero.json"},
+}
+
+
 class Transport:
     """실네트워크와 fixture 를 같은 인터페이스로 감춘다.
 
@@ -298,15 +314,29 @@ class Transport:
     응답 본문만 파일에서 읽고 그 뒤 처리는 실수집과 동일하다 (D23).
     """
 
-    def __init__(self, fixture):
+    def __init__(self, fixture, scenario="normal"):
         self.fixture = fixture
+        self.scenario = scenario
+        self.overrides = FIXTURE_SCENARIOS.get(scenario, {})
         self.calls = 0
+
+    def _override(self, fixture_name):
+        for pattern, replacement in self.overrides.items():
+            if fnmatch.fnmatch(fixture_name, pattern):
+                return replacement
+        return None
 
     def get(self, url, params, fixture_name=None, fixture_empty=None):
         self.calls += 1
         if self.fixture:
             if fixture_name is None:
                 raise RuntimeError("fixture 모드인데 fixture 파일명이 지정되지 않았다")
+            override = self._override(fixture_name)
+            if override:
+                override_path = FIXTURE_DIR / override
+                if not override_path.exists():
+                    raise FileNotFoundError("시나리오 fixture 없음: %s" % override)
+                return override_path.read_bytes()
             path = FIXTURE_DIR / fixture_name
             if path.exists():
                 return path.read_bytes()
@@ -365,17 +395,43 @@ def _field(item, logical):
 
 
 def parse_trade_xml(raw, housing_type, lawd_cd, deal_ymd):
-    """실거래 XML 응답 → (계약 배열, total_count). resultCode 가 정상이 아니면 예외."""
-    root = ET.fromstring(decode_body(raw))
+    """실거래 XML 응답 → (계약 배열, total_count, item 노드 수).
+
+    **HTTP 200 은 성공이 아니다** (DEF-2). data.go.kr 계열은 인증 실패·트래픽 초과·
+    파라미터 오류를 HTTP 200 + 표준 오류 봉투(`OpenAPI_ServiceResponse`/`cmmMsgHeader`/
+    `returnAuthMsg`/`errMsg`)로 돌려준다. 그 봉투에는 `resultCode` 가 없어서
+    "정상 + 0건" 으로 넘기면 집계가 빈 배열로 덮여 직전 데이터가 사라진다.
+    따라서 오류 봉투와 `resultCode` 부재를 모두 실패로 본다.
+    """
+    text = decode_body(raw)
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise RuntimeError("실거래 응답이 XML 이 아니다 — %s" % mask_secret(str(exc)))
+
+    if root.tag == "OpenAPI_ServiceResponse" or root.find(".//cmmMsgHeader") is not None:
+        detail = ""
+        for tag in ("returnAuthMsg", "errMsg", "returnReasonCode"):
+            detail = (root.findtext(".//" + tag) or "").strip()
+            if detail:
+                break
+        raise RuntimeError(
+            "실거래 API 오류 봉투(%s) — %s" % (root.tag, mask_secret(detail or "사유 미표기"))
+        )
+
     result_code = (root.findtext(".//resultCode") or "").strip()
     result_msg = (root.findtext(".//resultMsg") or "").strip()
-    if result_code and result_code not in ("00", "0", "000"):
+    if not result_code:
+        raise RuntimeError("실거래 응답에 resultCode 가 없다 — 정상 응답으로 보지 않는다")
+    if result_code not in ("00", "0", "000"):
         raise RuntimeError("실거래 API 오류 resultCode=%s %s" % (result_code, mask_secret(result_msg)))
     total_text = root.findtext(".//totalCount")
     total_count = to_int(total_text, 0) or 0
 
     contracts = []
+    node_count = 0
     for node in root.iter("item"):
+        node_count += 1
         item = {}
         for child in node:
             item[child.tag] = (child.text or "").strip()
@@ -397,7 +453,7 @@ def parse_trade_xml(raw, housing_type, lawd_cd, deal_ymd):
                 "area": to_float(_field(item, "area")),
             }
         )
-    return contracts, total_count
+    return contracts, total_count, node_count
 
 
 def classify_deal_type(deposit, rent, banjeonse_ratio):
@@ -472,6 +528,8 @@ def collect_trades(cfg, run, transport, service_key, cache):
             raise RuntimeError("config.trades.endpoints.%s 가 비어 있다" % housing_type)
 
         items = []
+        node_total = 0
+        declared_total = None
         page = 1
         while page <= max_pages:
             fixture_name = "trades_%s_%s_%s%s.xml" % (
@@ -489,21 +547,39 @@ def collect_trades(cfg, run, transport, service_key, cache):
                 fixture_name=fixture_name,
                 fixture_empty=EMPTY_TRADE_XML,
             )
-            batch, total_count = parse_trade_xml(raw, housing_type, lawd, ym)
+            batch, total_count, node_count = parse_trade_xml(raw, housing_type, lawd, ym)
+            if declared_total is None:
+                declared_total = total_count
             items.extend(batch)
-            if not batch or page * num_of_rows >= total_count:
+            node_total += node_count
+            if not node_count or page * num_of_rows >= total_count:
                 break
             page += 1
         else:
             run.add_note("페이지 상한 %d 도달 (%s)" % (max_pages, cache_key))
 
+        # totalCount 와 실제로 파싱한 item 수가 다르면 응답 구조가 바뀐 것이다 (DEF-2).
+        # 조용히 적은 건수로 집계하면 중위값·히스토그램이 통째로 틀어진다.
+        if declared_total is not None and node_total != declared_total and page <= max_pages:
+            raise RuntimeError(
+                "실거래 %s: totalCount %d 인데 파싱 %d건 — 응답 구조 불일치"
+                % (cache_key, declared_total, node_total)
+            )
+        dropped = node_total - len(items)
+        if dropped > 0:
+            run.add_note("보증금 없는 계약 %d건 제외 (%s)" % (dropped, cache_key))
+
         collected[cache_key] = items
         refetched.add(ym)
 
+    contracts = [c for items in collected.values() for c in items]
+    # 전 구간 합계 0건은 성공이 아니다 (DEF-2). 캐시·집계를 갱신하지 않고 실패로 떨어뜨려
+    # 직전 trades.json 을 그대로 유지한다.
+    if not contracts:
+        raise RuntimeError("실거래 전 구간 합계 0건 — 정상 응답으로 보지 않는다 (직전 집계 유지)")
+
     cache["months"] = collected
     cache["fetched_at"] = now_iso()
-
-    contracts = [c for items in collected.values() for c in items]
     return contracts, sorted(refetched), window
 
 
@@ -691,24 +767,98 @@ def lh_extract_items(payload):
     return items, all_count
 
 
+_LH_MSG_KEYS = ("MSG", "SS_MSG", "ERR_MSG", "RS_MSG", "RESULT_MSG", "returnAuthMsg", "errMsg")
+
+
+def lh_envelope_status(payload):
+    """응답 봉투에서 (SS_CODE 목록, 사유 문자열) 을 뽑는다 (DEF-1).
+
+    LH 계열은 인증 실패·파라미터 오류를 HTTP 200 + `SS_CODE:"N"` 으로 돌려준다.
+    이 검사가 없으면 '공고 0건 수집 성공'이 되어 직전 공고 전건이 소멸로 뒤집힌다.
+    """
+    codes = []
+    messages = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            if "SS_CODE" in node:
+                codes.append(str(node.get("SS_CODE") or "").strip())
+                for key in _LH_MSG_KEYS:
+                    value = node.get(key)
+                    if value:
+                        messages.append(str(value).strip())
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(payload)
+    return codes, mask_secret(" · ".join(messages)[:200])
+
+
+def check_lh_envelope(payload):
+    """봉투가 정상이 아니면 예외. **200 OK 는 성공이 아니다** (DEF-1)."""
+    codes, message = lh_envelope_status(payload)
+    if not codes:
+        raise RuntimeError("LH 응답에 SS_CODE 가 없다 — 정상 응답으로 보지 않는다")
+    bad = [code for code in codes if code != "Y"]
+    if bad:
+        raise RuntimeError("LH 응답 오류 SS_CODE=%s %s" % (bad[0], message))
+
+
+def promote_https(url):
+    """원문 링크를 https 로 승격 시도한다 (DEF-14 · SPEC §3-6 `source_url: string|null`).
+
+    문자열 치환만 한다 — 실제로 https 로 서비스되는지 요청을 보내 확인하지는 않는다.
+    승격 후에도 https 가 아니면 링크를 싣지 않는다(null).
+    """
+    text = (url or "").strip()
+    if not text:
+        return None
+    if text.startswith("https://"):
+        return text
+    if text.startswith("http://"):
+        return "https://" + text[len("http://"):]
+    return None
+
+
+_GU_PATTERN_CACHE = {}
+
+
+def _gu_pattern(gu_name):
+    """구·군명을 낱말 경계에서만 매칭하는 정규식 (DEF-7).
+
+    앞 = 문자열 시작 · 공백/구분기호 · `부산` / 뒤 = 한글 음절이 이어지지 않는다.
+    어간 부분일치(`수영`·`사상`·`기장`)와 다른 시도 구명(`강남구` → `남구`)의
+    오탐을 막는다. 잘못된 sigungu_code 는 복합 식별키 재료라 id 까지 오염시킨다.
+    """
+    pattern = _GU_PATTERN_CACHE.get(gu_name)
+    if pattern is None:
+        pattern = re.compile(
+            r"(?:^|(?<=[\s()\[\]{},./·:;|~+\-])|(?<=부산))%s(?![가-힣])" % re.escape(gu_name)
+        )
+        _GU_PATTERN_CACHE[gu_name] = pattern
+    return pattern
+
+
 def match_busan_gu(cfg, *texts):
-    """제목 등에서 부산 구·군명을 부분일치로 찾는다. 없으면 (None, None).
+    """제목 등에서 부산 구·군명을 찾는다. 없으면 (None, None).
 
     목록 응답의 지역 축은 시도 단위(CNP_CD_NM = '부산광역시'|'전국')뿐이라
-    구·군은 제목에서만 얻는다 (§E-1-5). 실패는 정상이며 null 을 허용한다.
+    구·군은 제목에서만 얻는다 (§E-1-5). 실패는 정상이며 null 을 허용한다 (§3-4).
     """
     table = cfg.get("busan_sigungu_codes", {})
+    # 긴 이름 우선 — '강서구' 가 '서구' 로 잘리지 않게 한다
+    names = sorted(
+        (n for n in table if n.endswith("구") or n.endswith("군")), key=len, reverse=True
+    )
     for text in texts:
         if not text:
             continue
-        for gu_name, code in table.items():
-            if gu_name in text:
-                return gu_name, code
-        # '금정' 처럼 '구' 를 뗀 표기도 받는다
-        for gu_name, code in table.items():
-            stem = gu_name[:-1] if len(gu_name) > 2 else gu_name
-            if stem and stem in text:
-                return gu_name, code
+        for gu_name in names:
+            if _gu_pattern(gu_name).search(text):
+                return gu_name, table[gu_name]
     return None, None
 
 
@@ -723,8 +873,8 @@ def region_accepted(cfg, region_name):
 def lh_to_notice(cfg, item, collected_at, today):
     title = (item.get("PAN_NM") or "").strip()
     detail_url = (item.get("DTL_URL") or "").strip()
-    # M26: https 만 허용. 아니면 링크를 싣지 않는다 (판정·링크 오염 방지)
-    source_url = detail_url if detail_url.startswith("https://") else None
+    # M26 + DEF-14: http 는 https 로 승격 시도하고, 그래도 https 가 아니면 싣지 않는다
+    source_url = promote_https(detail_url)
     supply_type = (item.get("AIS_TP_CD_NM") or item.get("UPP_AIS_TP_NM") or "").strip() or None
     gu_name, gu_code = match_busan_gu(cfg, title)
     detail_params = parse_lh_detail_url(detail_url)
@@ -761,6 +911,8 @@ def lh_to_notice(cfg, item, collected_at, today):
     }
     notice["_notice_no"] = detail_params.get("PAN_ID")
     notice["_detail_params"] = detail_params
+    # 복합키 재료 (DEF-4). 승격 전 DTL_URL 원문을 쓴다 — 승격 규칙이 바뀌면 id 가 흔들린다.
+    notice["_detail_url"] = detail_url
     return notice
 
 
@@ -784,7 +936,6 @@ def collect_lh(cfg, run, transport, service_key):
     statuses = lh_cfg.get("PAN_SS") or [None]
 
     raw_items = []
-    dropped_region = 0
     for region in regions:
         for upp in upp_codes:
             for status in statuses:
@@ -808,7 +959,14 @@ def collect_lh(cfg, run, transport, service_key):
                         fixture_name="lh_notice_list.json",
                         fixture_empty=EMPTY_LH_JSON,
                     )
-                    batch, all_count = lh_extract_items(json.loads(decode_body(raw)))
+                    payload = json.loads(decode_body(raw))
+                    # 200 OK 는 성공이 아니다 — 봉투를 먼저 본다 (DEF-1)
+                    check_lh_envelope(payload)
+                    batch, all_count = lh_extract_items(payload)
+                    if all_count > 0 and not batch:
+                        raise RuntimeError(
+                            "LH ALL_CNT=%d 인데 파싱 0건 — 응답 봉투 구조가 바뀌었다" % all_count
+                        )
                     raw_items.extend(batch)
                     if not batch or page * page_size >= all_count:
                         break
@@ -820,20 +978,24 @@ def collect_lh(cfg, run, transport, service_key):
     today_iso = today.isoformat()
     notices = []
     seen_signature = set()
+    dropped_signatures = set()
     for item in raw_items:
-        if not region_accepted(cfg, item.get("CNP_CD_NM")):
-            dropped_region += 1
-            continue
         signature = (
             (item.get("PAN_NM") or "").strip(),
             (item.get("DTL_URL") or "").strip(),
             (item.get("AIS_TP_CD_NM") or "").strip(),
         )
-        if signature in seen_signature:
-            continue  # 지역·유형·상태를 나눠 여러 번 조회하므로 중복이 정상이다
+        # 지역·유형·상태를 나눠 여러 번 조회하므로 중복이 정상이다.
+        # 중복 제거를 지역 필터보다 먼저 해야 제외 건수가 조회 횟수만큼 부풀지 않는다 (DEF-8).
+        if signature in seen_signature or signature in dropped_signatures:
+            continue
+        if not region_accepted(cfg, item.get("CNP_CD_NM")):
+            dropped_signatures.add(signature)
+            continue
         seen_signature.add(signature)
         notices.append(lh_to_notice(cfg, item, collected_at, today_iso))
 
+    dropped_region = len(dropped_signatures)
     if dropped_region:
         run.add_note("부산·전국 외 지역 %d건 제외" % dropped_region)
     if not cfg.get("lh_detail_confirmed", False):
@@ -962,7 +1124,7 @@ def collect_myhome(cfg, run, transport, service_key):
                 "source": "MYHOME",
                 "entry_kind": "auto",
                 "detail_level": "meta_only",
-                "source_url": url if (url or "").startswith("https://") else None,
+                "source_url": promote_https(url),  # DEF-14
                 "title": title,
                 "supply_type": None,
                 "sigungu_code": gu_code,
@@ -986,6 +1148,7 @@ def collect_myhome(cfg, run, transport, service_key):
                 "disappeared": False,
                 "collected_at": collected_at,
                 "_notice_no": None,
+                "_detail_url": url or "",
             }
         )
     run.add_note("응답 스키마 미확인 — 제목·링크만 최소 파싱, 원문은 data/raw_myhome_last.json")
@@ -1009,31 +1172,34 @@ def normalize_title(text):
     return re.sub(r"\s+", "", text or "")
 
 
-def composite_id(notice, level):
-    """폴백 식별키. 제목만으로 키를 만들지 않는다 (§3-5).
+def composite_id(notice, level=0):
+    """폴백 식별키. **배정 순서에 의존하지 않는 단일 산식**이다 (DEF-4 · §3-5).
 
-    level 0 = {source}:{supply_type}:{apply_end}:{sigungu_code}
-    level 1 = + apply_start
-    level 2 = + 정규화한 제목
+    재료 = source | supply_type | apply_end | apply_start | sigungu_code
+           | 정규화한 제목 | DTL_URL 원문(있으면)
+
+    단계적 충돌 확장(level 0→1→2)을 없앤 이유: 확장은 배정 순서에 의존해서, 같은 구·같은
+    공급유형 공고가 하나 늘면 정렬상 뒤로 밀린 기존 공고의 키가 바뀌고 같은 공고가
+    '신규'와 '마감(추정)'으로 동시에 떴다. `level` 인자는 호출 호환을 위해 남겨 두며
+    산식에 영향을 주지 않는다.
     """
     parts = [
         notice.get("source") or "",
         notice.get("supply_type") or "",
         notice.get("apply_end") or "",
+        notice.get("apply_start") or "",
         notice.get("sigungu_code") or "",
+        normalize_title(notice.get("title")),
+        (notice.get("_detail_url") or "").strip(),
     ]
-    if level >= 1:
-        parts.append(notice.get("apply_start") or "")
-    if level >= 2:
-        parts.append(normalize_title(notice.get("title")))
     return "%s:c%s" % (notice.get("source") or "?", sha1_hex("|".join(parts))[:12])
 
 
 def _id_sort_key(notice):
     """식별키 배정 순서를 내용으로 고정한다.
 
-    충돌 확장은 배정 순서에 의존하므로, 출처 API 가 같은 공고를 다른 순서로 내려주면
-    복합키가 서로 뒤바뀌어 '신규 공고' 오탐이 날 수 있다. 내용 기준으로 정렬해 막는다.
+    산식 자체는 순서에 의존하지 않지만, 재료가 완전히 같은 중복 공고에 붙는 `#N` 접미는
+    순회 순서를 따르므로 내용 기준으로 정렬해 실행 간 흔들림을 막는다.
     """
     return (
         str(notice.get("_notice_no") or ""),
@@ -1047,24 +1213,25 @@ def _id_sort_key(notice):
 
 
 def assign_notice_ids(notices):
-    """1순위 {source}:{공고번호}, 폴백 복합키 해시. 충돌은 단계적으로 확장한다."""
-    used = {}
+    """1순위 `{source}:{공고번호}`, 폴백 복합키 해시 (DEF-4).
+
+    재료가 완전히 같은 중복만 `#N` 접미로 갈라 놓는다 — 산식을 단계적으로 바꾸지 않는다.
+    """
+    used = set()
     for notice in sorted(notices, key=_id_sort_key):
         notice_no = notice.get("_notice_no")
         if notice_no:
             candidate = "%s:%s" % (notice["source"], str(notice_no).strip())
             basis = "notice_no"
         else:
-            candidate = composite_id(notice, 0)
+            candidate = composite_id(notice)
             basis = "composite"
-        level = 0
+        base = candidate
+        dup = 0
         while candidate in used:
-            level += 1
-            if basis == "composite" and level <= 2:
-                candidate = composite_id(notice, level)
-            else:
-                candidate = "%s#%d" % (candidate, level)
-        used[candidate] = notice
+            dup += 1
+            candidate = "%s#%d" % (base, dup)
+        used.add(candidate)
         notice["id"] = candidate
         notice["id_basis"] = basis
     return notices
@@ -1202,10 +1369,20 @@ def build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today):
             if n["id"] not in prev_by_id and not n.get("disappeared")
         ]
 
+    # D12 의 세 번째 마감 경로 — LH PAN_SS 가 접수마감 (DEF-5). 판정 문자열은 config 에 둔다.
+    closed_statuses = set((cfg.get("lh") or {}).get("closed_statuses") or ["접수마감"])
+
+    def is_status_closed(notice):
+        status = (notice.get("notice_status") or "").strip()
+        return bool(status) and status in closed_statuses
+
     closed_notices = []
     for notice in notices:
         if notice.get("disappeared"):
             closed_notices.append({"id": notice["id"], "reason": "disappeared"})
+            continue
+        if is_status_closed(notice):
+            closed_notices.append({"id": notice["id"], "reason": "notice_status"})
             continue
         days = dday(notice.get("apply_end"), today)
         if days is not None and days < 0:
@@ -1222,8 +1399,8 @@ def build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today):
     closing_soon = {}
     if not is_first_run:
         for notice in notices:
-            if notice.get("disappeared"):
-                continue
+            if notice.get("disappeared") or is_status_closed(notice):
+                continue  # 이미 마감으로 판정된 공고는 임박에 넣지 않는다 (D12)
             days = dday(notice.get("apply_end"), today)
             if days is None or days < 0:
                 continue  # apply_end 가 null 이면 D-day 를 계산하지 않는다
@@ -1248,6 +1425,8 @@ def build_diff(cfg, notices, prev_by_id, prev_diff, collector_records, today):
                 {
                     "key": record["key"],
                     "name": record["name"],
+                    # SPEC §3-6 필수 — 화면이 '실패'와 '건너뜀' 문구를 구분할 유일한 근거 (DEF-3)
+                    "status": record["status"],
                     "error": record["error"],
                     "last_success": record["last_success"],
                 }
@@ -1397,9 +1576,12 @@ def collect_policies(cfg, run, transport):
 # 9. 메인
 # ---------------------------------------------------------------------------
 
+# SPEC §3-6 meta.config 키. build.py 가 config.json 에서 다시 복사하지만
+# data/meta.json 자체도 §3-6 과 같은 모양이어야 혼동이 없다.
 META_CONFIG_KEYS = (
     "base_station", "conversion_rate", "trade_months", "trend_months",
-    "sample_min", "banjeonse_ratio", "deposit_hist_bucket", "sigungu_codes",
+    "sample_min", "banjeonse_ratio", "deposit_hist_bucket", "notice_retain_days",
+    "sigungu_codes", "exclusion_rules",
 )
 
 
@@ -1424,7 +1606,15 @@ def main(argv=None):
         action="store_true",
         help="data/fixtures/ 의 응답 샘플로 오프라인 수집 (HTTP 호출 없음)",
     )
+    parser.add_argument(
+        "--fixture-scenario",
+        default="normal",
+        choices=sorted(FIXTURE_SCENARIOS),
+        help="fixture 모드에서 특정 응답을 오류 봉투로 바꿔 실패 경로를 재현한다 (DEF-1·DEF-2)",
+    )
     args = parser.parse_args(argv)
+    if args.fixture_scenario != "normal" and not args.fixture:
+        parser.error("--fixture-scenario 는 --fixture 와 함께 쓴다")
     _init_stdio()
 
     cfg = read_json(CONFIG_PATH, None)
@@ -1433,7 +1623,7 @@ def main(argv=None):
         return 2
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    transport = Transport(args.fixture)
+    transport = Transport(args.fixture, args.fixture_scenario)
     service_key = os.environ.get(ENV_KEY) or ""
     has_key = bool(service_key)
     today = datetime.now(KST).date()
@@ -1450,6 +1640,8 @@ def main(argv=None):
     prev_diff = read_json(DATA_DIR / "snapshot_diff.json", None)
 
     mode = "fixture" if args.fixture else ("live" if has_key else "no-key")
+    if args.fixture and args.fixture_scenario != "normal":
+        mode += "/" + args.fixture_scenario
     log("hometrack collect 시작 — mode=%s, KST %s" % (mode, now_iso()))
 
     runs = []
@@ -1594,15 +1786,41 @@ def main(argv=None):
     private_run.skip("민간 부동산 플랫폼은 크롤링하지 않는다 (원칙 3)")
     runs.append(private_run)
 
+    # -- 0건 수집은 성공이 아니다 (DEF-1) ----------------------------------
+    # 직전에 공고가 있었는데 이번 결과가 0건이면 그 출처를 authoritative 에서 강등해
+    # disappeared 를 찍지 않는다. 오탐 소멸은 notices_prev.json 이 덮이면서 새 기준선이 되고
+    # notice_retain_days 후 잘려 나가 되돌릴 수 없다.
+    prev_active_by_source = {}
+    for row in prev_notices_list:
+        if not isinstance(row, dict) or row.get("disappeared"):
+            continue
+        if (row.get("entry_kind") or "auto") == "manual":
+            continue
+        source_name = row.get("source")
+        if source_name:
+            prev_active_by_source[source_name] = prev_active_by_source.get(source_name, 0) + 1
+
+    def authoritative_for(run, source_name, collected_notices):
+        if not run.ok:
+            return False
+        prev_count = prev_active_by_source.get(source_name, 0)
+        if not collected_notices and prev_count > 0:
+            run.add_note("0건 수집 — 마감 판정 보류")
+            log("경고: %s 0건 수집 — 마감 판정을 보류하고 직전 %d건을 유지한다"
+                % (source_name, prev_count))
+            return False
+        return True
+
+    authoritative = {
+        "LH": authoritative_for(lh_run, "LH", lh_notices),
+        "MYHOME": authoritative_for(myhome_run, "MYHOME", myhome_notices),
+        "manual": manual_ok,
+    }
+
     collector_records = [run.finish(prev_collectors) for run in runs]
 
     # -- 공고 병합 ---------------------------------------------------------
     auto_notices = assign_notice_ids(lh_notices + myhome_notices)
-    authoritative = {
-        "LH": lh_run.ok,
-        "MYHOME": myhome_run.ok,
-        "manual": manual_ok,
-    }
     notices, prev_by_id = merge_notices(
         cfg, auto_notices, manual_notices, prev_notices_list, authoritative, today_iso
     )
@@ -1640,11 +1858,18 @@ def main(argv=None):
     write_json(DATA_DIR / "meta.json", meta)
     write_json(DATA_DIR / "notices_prev.json", notices)
 
+    if trades_payload is not None:
+        trades_line = "실거래 집계 %d조합" % len(trades_payload.get("aggregates") or [])
+    else:
+        # 실패해도 trades.json 은 직전 집계를 그대로 들고 있다 — "0조합" 이라고 찍으면
+        # 로그를 읽는 사람이 데이터가 사라진 줄 안다 (DEF-10)
+        kept = read_json(DATA_DIR / "trades.json", None) or {}
+        trades_line = "실거래 직전 데이터 유지(%d조합)" % len(kept.get("aggregates") or [])
     log(
-        "완료 — 공고 %d건 / 실거래 집계 %d조합 / 신규 %d건 / 마감 %d건 / 미매핑 계약 %d건"
+        "완료 — 공고 %d건 / %s / 신규 %d건 / 마감 %d건 / 미매핑 계약 %d건"
         % (
             len(notices),
-            len((trades_payload or {}).get("aggregates") or []),
+            trades_line,
             len(diff["new_notices"]),
             len(diff["closed_notices"]),
             excluded_trade_count,

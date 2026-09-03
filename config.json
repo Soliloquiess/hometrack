@@ -48,7 +48,7 @@
     {
       "id": "gyodae",
       "name": "교대",
-      "gu": "동래구",
+      "gu": "연제구",
       "dongs": ["거제동", "온천동", "수민동"]
     },
     {
@@ -129,10 +129,9 @@
     { "keyword": "주택소유", "input": "noHome", "match": "contains" },
     { "keyword": "자가소유", "input": "noHome", "match": "contains" },
     { "keyword": "무주택세대구성원이아닌", "input": "noHome", "match": "contains" },
-    { "keyword": "세대주가아닌", "input": "householder", "match": "contains" },
-    { "keyword": "주거급여수급", "input": "housingBenefit", "match": "contains" }
+    { "keyword": "세대주가아닌", "input": "householder", "match": "contains" }
   ],
-  "_exclusion_rules_note": "D19. 공고 exclusions 원문(공백 제거 후 부분일치)이 keyword 에 걸리고 그 input 축의 사용자 입력이 배제 조건에 해당할 때만 '불가'. 표에 없는 exclusions 는 표시만 하고 판정에 쓰지 않는다. 초안이며 수동 등록 공고의 원문 표기를 보며 늘린다.",
+  "_exclusion_rules_note": "D19. 공고 exclusions 원문(공백 제거 후 부분일치)이 keyword 에 걸리고 그 input 축의 사용자 입력이 배제 조건에 해당할 때만 '불가'. 표에 없는 exclusions 는 표시만 하고 판정에 쓰지 않는다. 초안이며 수동 등록 공고의 원문 표기를 보며 늘린다. **input 은 화면이 실제로 판정하는 축(mockup EXCL_INPUT = noHome · householder)만 쓴다** — 없는 축을 쓰면 규칙이 영구히 무시되므로 build.py 가 경고한다(D20 방식). 주거급여수급 규칙은 대응 입력 컨트롤이 없어 제거했다(화면에 축이 추가되면 다시 넣는다).",
 
   "target_keywords": [
     "신혼부부",
@@ -160,8 +159,10 @@
     "_accept_region_names_note": "CNP_CD_NM 부분일치 화이트리스트. 여기에 걸리지 않는 지역의 공고는 버린다(전국 게시판 노이즈 방지).",
     "UPP_AIS_TP_CD": ["06", "39"],
     "_UPP_AIS_TP_CD_note": "06 임대주택 / 39 신혼희망타운 (D1).",
-    "PAN_SS": ["공고중", "접수중"],
-    "_PAN_SS_note": "공고상태 필터. '접수마감' 은 수집 대상에서 빼고, 이미 수집된 공고의 PAN_SS 가 접수마감이면 화면에서 마감으로 다룬다(D12).",
+    "PAN_SS": ["공고중", "접수중", "접수마감"],
+    "_PAN_SS_note": "공고상태 필터. '접수마감' 도 조회한다 — 빼면 직전에 있던 공고가 마감되는 순간 목록에서 사라져 상태 전이(접수중 → 접수마감)를 못 잡고 전부 '소멸(추정)' 문구가 된다(D12). 수집된 공고의 PAN_SS 가 closed_statuses 에 있으면 closed_notices[].reason = 'notice_status'.",
+    "closed_statuses": ["접수마감"],
+    "_closed_statuses_note": "D12 세 번째 마감 경로. build_diff 가 notice_status 를 이 목록과 대조한다. 판정 문자열을 코드에 박지 않는다(원칙 5).",
     "PG_SZ": 100,
     "lookahead_days": 365,
     "_period_note": "목록 API 는 PAN_NT_ST_DT(공고게시일)·CLSG_DT(공고마감일)가 필수라 '전체 조회'가 없다. 게시일 창은 오늘−trade_months 개월 ~ 오늘, 마감일 창은 오늘 ~ 오늘+lookahead_days 로 넓게 잡아 놓치지 않게 한다. 날짜 형식은 YYYY.MM.DD(점 구분).",

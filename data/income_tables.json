@@ -4,6 +4,7 @@
   "source_url": "https://apply.lh.or.kr/lhapply/cm/cntnts/cntntsView.do?cntntsId=1201391&mi=1201663",
   "verified_at": "2026-09-03",
   "confidence": "official",
+  "note": "6인 가구 130% 는 원문 미확인으로 비워 둠 — 폴백 시 근사값 표시",
   "by_household": {
    "1": {
     "70": 2669354,

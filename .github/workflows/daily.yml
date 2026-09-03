@@ -15,10 +15,9 @@ on:
     - cron: "0 22 * * *"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
+# 워크플로 전역은 권한 0 — 잡마다 필요한 것만 준다 (DEF-12).
+# 전역에 contents: write 를 두면 배포 잡까지 저장소 쓰기 권한을 상속받는다.
+permissions: {}
 
 concurrency:
   group: hometrack-daily
@@ -27,6 +26,11 @@ concurrency:
 jobs:
   collect-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write      # data/·site/ 자동 커밋
+      pages: write         # configure-pages
+      id-token: write      # configure-pages 의 OIDC
     steps:
       - name: 체크아웃
         uses: actions/checkout@v4
@@ -48,10 +52,20 @@ jobs:
           python collect.py && python build.py
 
       - name: 키 유출 검사
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
         run: |
           set +x
           if grep -rniE 'servicekey' data/ site/ 2>/dev/null; then
             echo "::error::산출물에 인증키 패턴이 있다 (D7 · Q42)"
+            exit 1
+          fi
+          # 발급키 원문 자체 검사 (DEF-11) — mask_secret 은 len(key)>=8 일 때만 원문을 지우고,
+          # 'servicekey' 문자열 없이 키만 남는 경로도 있다. -q 로 매칭 내용을 절대 출력하지 않고
+          # 종료코드만 본다(출력하면 로그에 키가 찍혀 검사가 유출이 된다).
+          if [ -n "${DATA_GO_KR_KEY:-}" ] \
+             && grep -qrF -- "$DATA_GO_KR_KEY" data/ site/ 2>/dev/null; then
+            echo "::error::산출물에 발급키 원문이 있다 (D7 · Q42)"
             exit 1
           fi
           echo "키 패턴 0건"
@@ -81,6 +95,10 @@ jobs:
   deploy:
     needs: collect-build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write         # deploy-pages
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
