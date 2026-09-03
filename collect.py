@@ -1664,7 +1664,7 @@ def main(argv=None):
     # -- 실거래 3종 --------------------------------------------------------
     trades_run = CollectorRun(
         key="trades",
-        name="국토교통부 실거래가 (전월세 3종)",
+        name="전월세 시세",
         source="국토교통부 실거래가 공개 API — 아파트·연립다세대·오피스텔 전월세",
         kind="auto",
         note="과거 계약 통계, 매물 아님 · 신고 지연 최대 30일",
@@ -1705,7 +1705,7 @@ def main(argv=None):
     # -- LH 공고 -----------------------------------------------------------
     lh_run = CollectorRun(
         key="lh",
-        name="LH 분양임대공고문 (부산)",
+        name="공고 · LH",
         source="한국토지주택공사_분양임대공고문 조회 서비스 (15058530)",
         kind="semi",
         list_url=cfg.get("lh", {}).get("list_url"),
@@ -1728,7 +1728,7 @@ def main(argv=None):
     # -- 마이홈 ------------------------------------------------------------
     myhome_run = CollectorRun(
         key="myhome",
-        name="마이홈포털 공공주택 모집공고",
+        name="공고 · 마이홈포털",
         source="국토교통부_마이홈포털 공공주택 모집공고 조회 서비스 (15108420)",
         kind="semi",
         list_url=cfg.get("myhome", {}).get("list_url"),
@@ -1753,7 +1753,7 @@ def main(argv=None):
     manual_notices, manual_ok = load_manual_notices(manual_path, today_iso)
     bmc_run = CollectorRun(
         key="bmc",
-        name="부산도시공사 임대주택 공고",
+        name="공고 · 부산도시공사",
         source="부산도시공사 청약센터 (수동 등록 — data/notices_manual.json)",
         kind="manual",
         note="금액·면적·배제조건은 공고문 원문을 보고 사람이 등록한다",
@@ -1777,7 +1777,7 @@ def main(argv=None):
     # -- 정책 변경 감지 ----------------------------------------------------
     policy_run = CollectorRun(
         key="policy",
-        name="신혼부부 정책 기준",
+        name="정책·지원",
         source="data/policies.json (출처 페이지 변경 감지)",
         kind="semi",
         note="수치는 사람이 확인해 등록한다 · 변경 감지만 자동",
@@ -1793,7 +1793,7 @@ def main(argv=None):
     # -- 민간 매물 (수집하지 않는 줄) --------------------------------------
     private_run = CollectorRun(
         key="private",
-        name="민간 매물 (네이버부동산·직방·다방)",
+        name="민간 매물",
         source="수집하지 않음",
         kind="none",
         note="수집 안 함 — 검색 링크만 제공",
