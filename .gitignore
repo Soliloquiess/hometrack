@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 로컬 실행용 키·환경 (API 키는 GitHub Actions Secrets 에만)
+.env
+*.key
+secrets*.json
+
+# OS / 편집기
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# 도구 상태 (OMC 등)
+.omc/
