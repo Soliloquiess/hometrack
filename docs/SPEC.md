@@ -779,7 +779,7 @@ excluded_trade_count: int
     source: "MYHOME"|"LH"|"BMC",
     entry_kind: "auto"|"manual",
     detail_level: "meta_only"|"detailed",   // meta_only = 제목·등록일·링크만. LH 자동수집분의 기본값
-    source_url: string,
+    source_url: string|null,   // null = 원문 URL 이 https 가 아니어서 싣지 않음 → 카드에 `원문 링크 없음(출처 http)` 표기
     title: string,
     supply_type: string|null,
     sigungu_code: string|null,
