@@ -36,6 +36,18 @@ class BuildError(Exception):
     """빌드를 계속하면 안 되는 상황. 종료 코드 != 0."""
 
 
+def _init_stdio() -> None:
+    """Windows cp949 콘솔에서 '—' 같은 문자로 죽지 않도록 stdout/stderr 를 UTF-8 로."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+_init_stdio()
+
+
 def log(msg: str) -> None:
     print(msg, flush=True)
 

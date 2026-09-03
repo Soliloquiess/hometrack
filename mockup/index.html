@@ -198,7 +198,6 @@ code, .mono { font-family: var(--mono); }
   border-radius: var(--radius); padding: 9px 13px; margin-bottom: 12px;
   border: 1px solid var(--line); background: var(--bg-3); font-size: 13px;
 }
-.banner.mock { background: var(--mid-bg); border-color: var(--mid); color: var(--mid); font-weight: 700; }
 .banner.warn { background: var(--mid-bg); border-color: var(--mid); color: var(--mid); }
 .banner.err  { background: var(--hi-bg);  border-color: var(--hi);  color: var(--hi); }
 .banner.note { color: var(--fg-2); }
@@ -457,6 +456,13 @@ svg.chart-bar, svg.chart-line { display: block; max-width: 100%; }
 .policy-foot .sp { margin-left: auto; }
 .policy-stale { font-size: 12px; color: var(--mid); background: var(--mid-bg); border-radius: 4px; padding: 4px 8px; margin-top: 7px; }
 .policy-changed { font-size: 12px; color: var(--hi); background: var(--hi-bg); border-radius: 4px; padding: 4px 8px; margin-top: 7px; }
+/* 데이터 메모 — policies.json 의 `note` 는 조사자·개발자용 메모다(필드명·`pct_dual = null` 표기 포함).
+   지우면 판정 근거를 잃고, 펼쳐 두면 사용자 화면과 인쇄물에 개발 메모가 그대로 남는다.
+   그래서 접힘 안에 두고 기본은 닫는다 — 화면·인쇄 모두 (7-3). 인쇄 시 강제 펼침 대상에서 제외한다. */
+details.datanote { margin-top: 7px; border-top: 1px solid var(--line); padding-top: 6px; }
+details.datanote > summary { cursor: pointer; font-size: 11.5px; color: var(--fg-3); }
+details.datanote > summary::marker { color: var(--fg-3); }
+details.datanote .dn-body { font-size: 12px; color: var(--fg-2); margin-top: 5px; white-space: pre-wrap; word-break: break-word; }
 
 /* ---------- 딥링크 ---------- */
 .deeplink { border: 1px dashed var(--line-2); border-radius: var(--radius); padding: 12px 14px; background: var(--bg-2); }
@@ -627,7 +633,7 @@ details.daybox > summary::marker { color: var(--fg-3); }
   @page { margin: 12mm; }
   body { background: var(--bg); font-size: 10.5pt; }
   .topbar, .side, .listbar, button.btn, button.btn-ghost, .btn-icon, .seg, .input,
-  .facet, .banner.mock, .sortbtn, .rowbtn .caret,
+  .facet, .sortbtn, .rowbtn .caret,
   .line1-hint { display: none !important; }
   /* 개인 조건이 종이에 남지 않게 조건 입력 탭은 통째로 숨긴다 (SPEC v1.1 §2 탭1) */
   #tab-input { display: none !important; }
@@ -1109,7 +1115,24 @@ function esc(s){
 function pad2(n){ return (n < 10 ? "0" : "") + n; }
 function fmtDate(s){ var d = parseDT(s); return d ? (pad2(d.getMonth()+1) + "/" + pad2(d.getDate())) : "—"; }
 function fmtYmd(s){ return s ? String(s).slice(0,10) : "—"; }
-function fmtTime(s){ var d = parseDT(s); return d ? (pad2(d.getHours()) + ":" + pad2(d.getMinutes())) : "—"; }
+/* 🔴 데이터의 시각은 ISO-8601 이다(`YYYY-MM-DDTHH:MM:SS+09:00` — collect.py 가 그렇게 쓴다).
+   그걸 화면에 그대로 찍으면 `T`·초·오프셋까지 상단바와 종이에 나온다. 사람이 읽는 형태는
+   `2026-09-03 14:59` 하나뿐이고, **표시는 이 헬퍼만 지나게 한다**(데이터는 ISO 그대로 둔다).
+   - 날짜만인 값(`verified_at`·`diff.date`·`detail_registered_at`)에는 없는 시각을 00:00 으로
+     지어 붙이지 않는다 — 그러면 "확인한 시각"이 있는 것처럼 보인다.
+   - 읽을 수 없는 값은 **원문 그대로** 돌려준다. throw 하지도, 조용히 감추지도 않는다(M18 과 같은 태도). */
+function fmtDT(s){
+  if(s == null || String(s).trim() === "") return "—";
+  var raw = String(s).trim();
+  /* `YYYY-MM-DD…` 모양이 아니면 파싱하지 않는다. new Date("0") 은 2000-01-01 로 읽혀서
+     엉뚱한 값에서 그럴듯한 날짜를 지어낸다 — 모르는 값은 지어내지 말고 원문을 남긴다. */
+  if(!/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw;
+  var d = parseDT(raw);
+  if(!d) return raw;
+  var ymd = d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return ymd;
+  return ymd + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+}
 
 /* 만원 단위 → 한글 혼용. 금액 표기는 이 함수 하나로만 만든다. */
 function won(man){
@@ -1242,6 +1265,19 @@ function collectorByKey(k){
   return null;
 }
 var NOTICE_KEYS = ["myhome","lh","bmc"];        /* 공고 출처 3종 */
+/* 🔴 신선도 바 줄 순서는 SPEC §2 표 순서로 고정한다 — collectors[] 배열 순서로 찍지 않는다.
+   collect.py 의 배열 순서는 수집 실행 순서(성공·실패·재시도)라서 실행마다 달라질 수 있고,
+   그러면 매일 같은 화면을 여는 사람 눈에 출처 줄이 이유 없이 자리를 바꾼다.
+   목록에 없는 key(출처 추가분)는 지우지 않고 뒤에 배열 순서대로 붙인다. */
+var FRESH_ORDER = ["myhome","lh","bmc","trades","policy","private"];
+function freshCollectors(){
+  var src = DATA.meta.collectors || [], out = [];
+  FRESH_ORDER.forEach(function(k){
+    src.forEach(function(c){ if(c && c.key === k && out.indexOf(c) < 0) out.push(c); });
+  });
+  src.forEach(function(c){ if(c && out.indexOf(c) < 0) out.push(c); });
+  return out;
+}
 
 /* ==========================================================================
    [2] 조건 저장 — localStorage 전용. 차단 환경에서도 죽지 않는다.
@@ -1621,7 +1657,7 @@ function confHtml(c){
       collect.py 가 라벨을 고치는 순간 §2 의 출처별 표시 요구가 소리 없이 사라진다.
    ========================================================================== */
 function renderFresh(){
-  var rows = DATA.meta.collectors.map(function(c){
+  var rows = freshCollectors().map(function(c){
     var cls, v, why, tag, v2 = null;
     tag = '<span class="chip">' + esc(kindTxt(c.kind)) + '</span>';
     if(c.status === "skip"){
@@ -1630,7 +1666,7 @@ function renderFresh(){
       why = c.note || "네이버부동산·직방·다방은 공식 API가 없고 약관이 크롤링을 금지합니다.";
     } else if(c.status === "fail"){
       cls = "fail"; tag = '<span class="tag tag-high">실패 · ' + esc(kindTxt(c.kind)) + '</span>';
-      v = "직전 성공 " + fmtYmd(c.last_success) + " " + fmtTime(c.last_success) +
+      v = "직전 성공 " + fmtDT(c.last_success) +
           " (" + relTime(c.last_success) + ") · " + num(c.item_count) + "건";
       why = c.error || "사유가 기록되지 않았습니다. 수집기 로그를 확인하세요.";
     } else if(c.kind === "manual"){
@@ -1642,7 +1678,7 @@ function renderFresh(){
          한 줄로 뭉치면 사용자가 금액까지 최신인 줄 오인한다 (SPEC §2 · D1). */
       cls = "ok";
       v = "감지 " + relTime(c.last_success) + " · 공고 " + num(c.item_count) + "건";
-      v2 = "상세 등록 " + fmtYmd(c.detail_registered_at);
+      v2 = "상세 등록 " + fmtDT(c.detail_registered_at);
       why = c.note || c.source;
     } else if(c.key === "trades"){
       cls = "ok";
@@ -1674,7 +1710,7 @@ function renderFresh(){
 
   var fail = DATA.meta.collectors.filter(function(c){ return c.status === "fail"; });
   var cs = $("collect-state");
-  cs.textContent = fmtYmd(DATA.meta.generated_at) + " " + fmtTime(DATA.meta.generated_at) +
+  cs.textContent = fmtDT(DATA.meta.generated_at) +
                    (fail.length ? " · 수집 실패 " + fail.length : "");
   cs.className = "collect-state" + (fail.length ? " bad" : "");
 }
@@ -2217,7 +2253,7 @@ function renderHomes(){
   var fail = NOTICE_KEYS.map(collectorByKey).filter(function(c){ return c && c.status === "fail"; })[0];
   if(fail){
     html += '<div class="banner err">공고 수집이 실패했습니다 — ' + esc(fail.name) + ': ' + esc(fail.error) +
-      '. 아래는 <b>' + esc(fail.last_success) + '</b> 수집분입니다.</div>';
+      '. 아래는 <b>' + esc(fmtDT(fail.last_success)) + '</b> 수집분입니다.</div>';
   }
   html += '<div class="banner note">공고는 <b>부산 전역</b>에서 모읍니다. 1호선 13개 역은 화면 필터입니다. ' +
     '매입임대·전세임대는 시 단위 공고가 많아 수집 단계에서 지역을 좁히면 전부 걸러집니다.</div>';
@@ -2394,6 +2430,20 @@ function incomeCriteriaHtml(p){
     (L.approx ? ' <span class="chip chip-mask" title="표에 이 비율 칸이 없어 100% 값에 비율을 곱했습니다">근사값</span>' : '') +
     ' <span class="yl">' + esc(tbl.year_label) + '</span>';
 }
+/* 🔴 policies.json 의 `note` 는 조사자·개발자용 메모다 — 필드명(`pct_dual = null`)·`**강조**`·
+   1차/2차 조사 이력이 그대로 들어 있다. v1.2 는 이걸 `.kv` 의 `비고` 로 본문에 찍었고,
+   그러면 정책 카드에서 가장 긴 줄이 사용자에게 뜻이 없는 개발 메모가 된다(화면·인쇄 모두).
+   지우는 것도 답이 아니다 — 판정 수치의 근거·한계가 여기에만 적혀 있다.
+   그래서 **접힘 안에 "데이터 메모"로 두고 기본은 닫는다**. 인쇄에서도 닫힌 채 제목만 남는다
+   (인쇄 직전 강제 펼침 대상에서 `details.datanote` 를 제외한다 — [13] 참조).
+   빈 문자열·null 이면 접힘 자체를 만들지 않는다(빈 <details> 는 클릭할 것이 없다). */
+function dataNoteHtml(p){
+  var t = (p.note == null) ? "" : String(p.note).trim();
+  if(!t) return "";
+  return '<details class="datanote"><summary>데이터 메모 — 이 수치를 어디서 어떻게 확인했는지 ' +
+         '(조사·정리용 기록이며 신청 조건이 아닙니다)</summary>' +
+         '<div class="dn-body">' + esc(t) + '</div></details>';
+}
 function policyCard(p){
   var v = judgePolicy(p);
   var cls = v.k === "ok" ? "" : (v.k === "cond" ? "is-cond" : "is-no");
@@ -2462,10 +2512,9 @@ function policyCard(p){
       (asset.length ? '<span class="k">자산</span><span>' + esc(asset.join(" · ")) + ' 이하</span>' : '') +
       (sv.length ? '<span class="k">청약통장</span><span>' + esc(sv.join(" · ")) + ' 이상</span>' : '') +
       '<span class="k">혼인</span><span>' + esc(mar.join(" · ")) + '</span>' +
-      (p.note ? '<span class="k">비고</span><span>' + esc(p.note) + '</span>' : '') +
-    '</div>' + warn +
+    '</div>' + dataNoteHtml(p) + warn +
     '<div class="policy-foot"><span class="chip">수동 정리</span>' +
-      '<span>최종 확인 ' + (age != null ? esc(String(p.verified_at)) + ' (' + age + '일 전)' : '미기재') + '</span>' +
+      '<span>최종 확인 ' + (age != null ? esc(fmtDT(p.verified_at)) + ' (' + age + '일 전)' : '미기재') + '</span>' +
       '<span class="sp">' + extLink(p.source_url, "근거 출처 ↗") + '</span>' +
     '</div></article>';
 }
@@ -2775,14 +2824,14 @@ function diffSections(d){
     /* D8 — 실패 항목도 key 로 수집기를 찾는다. 이름은 표시용이다. */
     var c = collectorByKey(f.key);
     return newsItem("is-fail", "✕", esc((c ? c.name : f.name) || f.key), "",
-      esc("사유: " + f.error + " · 마지막 성공 " + f.last_success));
+      esc("사유: " + f.error + " · 마지막 성공 " + fmtDT(f.last_success)));
   }).join(""));
   return html;
 }
 function renderNews(){
   var d = DATA.diff;
-  $("news-basis").innerHTML = '기준 <span class="mono">' + esc(d.date) +
-    '</span> · 직전 수집분(<span class="mono">notices_prev.json</span>) 대비 · 수집 ' + esc(DATA.meta.generated_at);
+  $("news-basis").innerHTML = '기준 <span class="mono">' + esc(fmtDT(d.date)) +
+    '</span> · 직전 수집분(<span class="mono">notices_prev.json</span>) 대비 · 수집 ' + esc(fmtDT(DATA.meta.generated_at));
   Array.prototype.forEach.call($("seg-news").querySelectorAll("button[data-news]"), function(b){
     b.classList.toggle("on", b.getAttribute("data-news") === UI.newsMode);
   });
@@ -2800,7 +2849,7 @@ function renderNews(){
   if(total === 0){
     html += '<div class="card"><div class="empty-filtered">' +
       '<div class="empty-h">직전 수집과 달라진 것이 없습니다</div>' +
-      '<div class="empty-cond">마지막 수집 ' + esc(DATA.meta.generated_at) + '</div></div></div>';
+      '<div class="empty-cond">마지막 수집 ' + esc(fmtDT(DATA.meta.generated_at)) + '</div></div></div>';
   }
   html += '<div class="noteline">② 마감 임박은 <b>이번 수집에서 새로</b> D-30/D-7 안으로 들어온 공고입니다' +
     '(<span class="mono">diff.closing_soon</span>). 추천 주거 탭의 고정 섹션은 <b>오늘 기준 D-30 전체</b>를 셉니다. ' +
@@ -2836,19 +2885,21 @@ function renderPrintHead(tab){
   }).join(" · ");
   $("print-head").innerHTML =
     '<div class="t">hometrack — ' + esc(TAB_TITLE[tab] || "") + '</div>' +
-    '<div>데이터 기준 ' + esc(DATA.meta.generated_at) + '</div>' +
-    '<div>공고: ' + esc(line) + ' · 시세: ' + esc(trade ? trade.last_success : "—") +
-      ' · 정책 정리 ' + esc(DATA.meta.policy_verified_latest) + '</div>' +
+    '<div>데이터 기준 ' + esc(fmtDT(DATA.meta.generated_at)) + '</div>' +
+    '<div>공고: ' + esc(line) + ' · 시세: ' + esc(fmtYmd(trade ? trade.last_success : null)) +
+      ' · 정책 정리 ' + esc(fmtDT(DATA.meta.policy_verified_latest)) + '</div>' +
     '<div class="w">⚠ 이 판정은 참고용 사전 대조이며 공식 자격 판정이 아닙니다. ' +
       '최종 판단은 공고 원문·기관 문의로 하세요.</div>';
 }
 
-/* <details> 는 CSS 만으로 확실히 펼쳐지지 않는다. 인쇄 직전에 열고 끝나면 되돌린다. */
+/* <details> 는 CSS 만으로 확실히 펼쳐지지 않는다. 인쇄 직전에 열고 끝나면 되돌린다.
+   `details.datanote`(정책 카드의 데이터 메모)는 **제외한다** — 개발자 메모를 종이에 옮기지 않는다.
+   접힘 강제 펼침은 원래 예산 밖 공고를 위한 규칙이다(DESIGN.md §3). */
 (function(){
   var reopened = [];
   window.addEventListener("beforeprint", function(){
     reopened = [];
-    Array.prototype.forEach.call(document.querySelectorAll("details"), function(d){
+    Array.prototype.forEach.call(document.querySelectorAll("details:not(.datanote)"), function(d){
       if(!d.open){ d.open = true; reopened.push(d); }
     });
   });
