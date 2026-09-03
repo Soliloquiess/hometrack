@@ -421,6 +421,7 @@ main.wrap     : 신선도 바 → 탭별 콘텐츠
 | `trend_months` | **3** | 탭4 추세 라인 기간 (`DESIGN.md` §3) |
 | `sample_min` | **5** | 표본 부족 판정 하한 |
 | `banjeonse_ratio` | **240** | 반전세 분류 배수 (§3-3). 출처 확정 전까지의 설정값 |
+| `notice_retain_days` | **60** | 출처 목록에서 소멸(`disappeared`)한 공고를 `notices.json` 에 보존하는 일수. 지나면 제거(새 소식 이력은 `diff_history` 에 남음) |
 | `deposit_hist_bucket` | **500** | 보증금 히스토그램 버킷 폭(만원). 예산 내 비율 계산 단위 (D6) |
 
 `config.json` 은 위 수치 외에 **`stations[]`**(1호선 순서 · 역↔법정동 매핑 · §3-6 `meta.config.stations` 로 복사),
@@ -901,9 +902,10 @@ excluded_trade_count: int
   new_notices: string[],
   closing_soon: [ { id: string, dday: int } ],
   //   ↑ 이번 수집에서 새로 D-30/D-7 안으로 들어온 것만 (D12). dday 는 탭5 화면에서 표시한다
-  closed_notices: [ { id: string, reason: "apply_end"|"disappeared" } ],   // (D12)
+  closed_notices: [ { id: string, reason: "apply_end"|"disappeared"|"notice_status" } ],   // (D12) notice_status = LH PAN_SS 가 접수마감으로 바뀐 경우
   changed_policies: [ { id: string, prev_hash: string, new_hash: string } ],
-  collector_failures: [ { key: string, name: string, error: string, last_success: string } ] }
+  collector_failures: [ { key: string, name: string, status: "fail"|"skip", error: string, last_success: string } ] }
+  // skip(키 없음·fixture 생략)도 포함한다 — 원칙 4·7. 화면은 fail 과 skip 문구를 구분한다.
   //   ↑ key 로 화면 분기 (D8). error 는 serviceKey 마스킹 후 (D7)
 ```
 
