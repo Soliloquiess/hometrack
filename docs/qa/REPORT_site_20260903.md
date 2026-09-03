@@ -449,3 +449,43 @@ if n_shown != n_exp: -> Q16Q31_hard_reason_count 위반
 ```
 
 **`docs/qa/` 외 변경 0건.** `collect.py`/`build.py` 를 fixture 시나리오 확인에 실행했으나 `git checkout -- data site` 로 원복해 `data/`·`site/` 는 `HEAD`(`3316a3f`)와 동일하다(`site/index.html` sha256 앞 16자 `61498245b6932841`). 소스·명세·목업은 손대지 않았고 커밋하지 않았다.
+
+## R10. 결함 #9·#10 수정 재확인 (신선도 바 hold 줄만)
+
+| 항목 | 값 |
+|---|---|
+| 대상 | 커밋 `3c9d779` (`design: 신선도 바 hold 줄 …`) → 확인 중 `b8cf16a`(`collect: collectors[].name 통일`) 로 HEAD 이동 · **두 커밋 모두에서 재확인**. HEAD sha256 앞 16자 `4a046e58a5329059` |
+| 재현 | `python collect.py --fixture --fixture-scenario lh_zero && python build.py` (실데이터 경로) |
+| 원복 | `python collect.py --fixture && python build.py` → `git checkout -- data site`. 원복 후 `site/index.html` sha256 = `HEAD:site/index.html` sha256 = `4a046e58a5329059`, `git status` 에 `data/`·`site/` 변경 **0건** |
+| 증적 | `docs/qa/site2_fresh_hold_fix.png` |
+
+**수정 내용** — `SOURCE_KEY = { LH:"lh", MYHOME:"myhome", BMC:"bmc" }` + `retainedCount(key)` 신설(`:1589-1594`, `DATA.notices` 에서 그 출처 공고를 직접 센다. 대응표는 이 한 곳에만 둔다) → hold 분기 `.v` 가 `num(c.item_count)` 대신 `num(retainedCount(c.key))` 를 쓴다(`:1629`).
+
+**확인 결과 — 4항목 전부 통과**
+
+```
+신선도 바 hold 줄   class="row warn"   tag="보류 · 반자동"
+  .v   = 이번 수집 0건 · 직전 5건 유지 (방금)
+  .why = 0건 수집 — 마감 판정 보류 · 직전 5건 유지
+  retainedCount("lh") = 5   ↔   collectors["lh"].item_count = 0   (더 이상 0 을 쓰지 않는다)
+  DATA.notices 5건 (source LH 5)   ↔   탭2 도달 공고 = 5건
+```
+
+| 확인 | 결과 |
+|---|---|
+| `.v` 에 `직전 5건 유지` (1차 재검수의 `직전 0건 유지` 오표기 해소) | 통과 |
+| `.v` 첫 문장 ≠ `.why` 첫 문장 (`이번 수집 0건` vs `0건 수집 — 마감 판정 보류`) — 결함 #10 | 통과 |
+| 탭2 목록 건수(5)·`DATA.notices` LH 건수(5)와 일치 — 1차 재검수의 3중 어긋남 해소 | 통과 |
+| `relTime` 병기 (`(방금)`) — 유지분의 기준 시각이 함께 읽힌다 | 통과 |
+
+`build.py` 경고 0건 · 런타임 스모크 통과(throw 0 · 출력 163곳 `NaN`/`undefined`/`Infinity` 0건). 다른 줄(`fail`/`skip`/`private`/정상 4줄)의 문구·색은 변화 없음.
+
+**잔존 참고(결함 아님)** — `.why` 는 `collect.py` 가 준 `error` 원문이므로 꼬리 문구(`직전 5건 유지`)가 `.v` 와 겹친다. 지시대로 `.why` 는 원문 그대로 두는 설계이고 첫 문장이 달라 두 번 읽히지 않으므로 그대로 둔다.
+
+## R11. 화면 계층 최종 판정
+
+# GO
+
+1차 결함 **#1~#8** 과 재검수 신규 **#9·#10** 전건 해소. 잔존 결함 **0건**.
+근거 — 판정 오라클 불일치 0(정책 453,600 · 공고 1,240 · 비율 279) · 불변식 위반 0 · 견고성 480 시나리오 throw 0 · 누출 0 · 문구·구조 단정 74/74 · 25조합 가로 스크롤 0 · 외부 요청 0 · A4 703px 인쇄 종이 밖 0 · hold 3색·3문구 실데이터 경로 확인.
+남은 것은 **육안 확인 5건(R6)** 과 **실키 발급 후 실데이터 검증**이며 둘 다 화면 계층의 잔존 결함이 아니다.
