@@ -27,7 +27,7 @@
     "announced_at": null,
     "first_seen": "2026-09-03",
     "disappeared": false,
-    "collected_at": "2026-09-03T15:58:54+09:00"
+    "collected_at": "2026-09-03T16:37:12+09:00"
   },
   {
     "id": "LH:2015122300018991",
@@ -57,7 +57,7 @@
     "announced_at": null,
     "first_seen": "2026-09-03",
     "disappeared": false,
-    "collected_at": "2026-09-03T15:58:54+09:00"
+    "collected_at": "2026-09-03T16:37:12+09:00"
   },
   {
     "id": "LH:c02cad97312eb",
@@ -87,7 +87,7 @@
     "announced_at": null,
     "first_seen": "2026-09-03",
     "disappeared": false,
-    "collected_at": "2026-09-03T15:58:54+09:00"
+    "collected_at": "2026-09-03T16:37:12+09:00"
   },
   {
     "id": "LH:c8516bca3bde9",
@@ -117,7 +117,7 @@
     "announced_at": null,
     "first_seen": "2026-09-03",
     "disappeared": false,
-    "collected_at": "2026-09-03T15:58:54+09:00"
+    "collected_at": "2026-09-03T16:37:12+09:00"
   },
   {
     "id": "LH:cbb762e42fc17",
@@ -147,6 +147,6 @@
     "announced_at": null,
     "first_seen": "2026-09-03",
     "disappeared": false,
-    "collected_at": "2026-09-03T15:58:54+09:00"
+    "collected_at": "2026-09-03T16:37:12+09:00"
   }
 ]
