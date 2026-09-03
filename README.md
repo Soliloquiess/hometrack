@@ -18,8 +18,17 @@
 ```bash
 python collect.py --fixture   # 키 없이 오프라인 수집. data/fixtures/ 의 응답 샘플로 data/*.json 생성
 python collect.py             # 실수집. 환경변수 DATA_GO_KR_KEY 필요 (없으면 각 수집기를 skip 하고 직전 데이터 유지)
-python build.py               # data/*.json → site/index.html
+python build.py               # data/*.json + config.json → site/index.html (단일 파일 · 외부 요청 0건)
+python build.py --no-smoke    # 같은 빌드에서 Node 런타임 스모크만 건너뛴다
 ```
+**사이트 열기**: `site/index.html` 을 **더블클릭**한다. 서버가 필요 없다(원하면 `python -m http.server -d site 8000`).
+
+`build.py` 는 `mockup/index.html` 을 빌드 시점에 읽어 변환하므로 목업 복제본을 손으로 관리하지 않는다.
+변환 마커를 못 찾거나 스키마·URL·외부요청·시크릿 검증을 어기면 **빌드가 실패하고 `site/` 를 쓰지 않는다**
+(종료 코드 1 = 검증 위반 / 2 = 빌드 중단 / 3 = 런타임 스모크 실패). `site/` 는 빌드로만 만든다 — 손으로 고치지 않는다.
+Node 가 있으면 빌드 끝에서 `tools/smoke_site.js` 가 산출 HTML 의 `renderAll()` + 5탭을 DOM 스텁 위에서 돌려
+throw·`NaN`/`undefined`/`Infinity` 노출 0건을 확인한다. Node 가 없으면 "스모크 생략"을 출력하고 빌드는 성공한다.
+
 Python 3.12 표준 라이브러리만 쓴다(설치할 것 없음). 키는 로컬에서는 환경변수(`export DATA_GO_KR_KEY=...`),
 GitHub Actions 에서는 저장소 Secrets `DATA_GO_KR_KEY` 로만 넣는다 — 코드·JSON·커밋에 남기지 않는다.
 

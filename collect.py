@@ -136,7 +136,7 @@ def read_json(path, default=None):
         return default
 
 
-def write_json(path, payload, newline=None, indent=2):
+def write_json(path, payload, newline="\n", indent=2):
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w", encoding="utf-8", newline=newline) as fh:
