@@ -77,26 +77,32 @@ UI·HTML을 쓰거나 고칠 때는 **먼저 루트 `DESIGN.md` 를 읽고** Str
 
 ## 9. 현재 상태 (핸드오프 — `/hometrack-handoff` 가 갱신한다)
 
-**최종 갱신**: 2026-09-03 · **단계**: 기획·디자인 완료, **개발 미착수**
+**최종 갱신**: 2026-09-03 · **단계**: 개발 v1 완료 · QA 2계층 GO(수집) / 조건부 GO→재검수 중(화면) · **실키 미발급 → 실데이터 미검증**
 
-### 완료
-- SPEC v1.1(757줄) — 기획 검수 24건 반영, 디자이너 발견 스키마 공백(`linked_policy_id`) 정식 반영
-- DATA_SOURCES — 실거래 API 3종 확인(시군구 연제 26470·동래 26260·금정 26410), 2인 가구 도시근로자 월평균소득 100~140% 확보(100%=5,866,270원, 2025 실적 기준)
-- 디자인 — DESIGN_SPEC + 동작 목업(191KB). QA 최종 **GO**, 잔여 결함 0 (12,960 조합 전수 + 독립 오라클 재현)
-- GitHub 공개 저장소 개설, 첫 푸시 완료
+### 완료 (전부 커밋·푸시됨, `python collect.py --fixture && python build.py` 로 재현)
+- **재검수** `docs/REVIEW_predev_20260903.md` — 기획 P1~P23 · 목업 M1~M30 · 하네스 H1~H6. 핵심: LH API 오선정(15058449 게시판 → **15058530 분양임대공고문**), 행복주택 **2인가구 +10%p 가산** 스키마 누락, 2026-06-09 소득기준 완화 발표 미반영, 기혼 7년 판정식·예산 내 비율 데이터 부재, 목업 크래시 2곳
+- **SPEC v1.2** — 결정 D1~D24(§6), §4 검수 항목 **Q1~Q56** 번호 부여. 이후 소폭 패치: LH 응답에 접수기간·PAN_ID 없음(부산+전국 조회), `closed reason notice_status`, `collector_failures.status fail|skip|hold`, `notice_retain_days`, `source_url string|null`, `age_max/region` 조건부 규칙
+- **DATA_SOURCES §E** — LH API 3종(15058530 목록·15057999 상세·15056765 공급정보) 확정, 2026 기준중위소득 1~6인(2인 4,199,292), 도시근로자 `year_label` "2026년도 적용기준(2025년 실적)"(2인 100% 5,866,270 · 130% 7,626,151), 가산 3유형 원문, 임대차 신고 하한(보증금 6천만 초과 또는 월세 30만 초과), 버팀목·§B-2 정정. 2026-06 완화는 **미시행**(`pending_change`, `effective: unknown`)
+- **데이터** `data/policies.json` 8건(official 7 · secondary 1) · `data/income_tables.json` — `tools/ingest_proposals.py` 로 `docs/proposals/*.json` 이관(실수집 후 재실행 금지: `source_hash` 초기화)
+- **수집** `config.json`(13역 1호선 순서·법정동 초안·설정·`exclusion_rules`·`supply_type_policy_map`) · `collect.py`(수집기 6종, `--fixture`, `--fixture-scenario` 6종, 키 마스킹, 200 OK 오류 봉투를 실패로, 0건 수집 시 마감 판정 보류 `hold`, 복합키 고정 산식) · `data/fixtures/` · `.github/workflows/daily.yml`(잡별 최소 권한, 키 유출 검사)
+- **디자인** 목업 v1.2.2 + `DESIGN.md`(`--print-*` 토큰) + `DESIGN_SPEC.md` v1.2.2
+- **빌드** `build.py`(목업을 빌드 시점에 변환 · 스키마/URL/외부요청/시크릿 검증 · 스모크) · `tools/smoke_site.js` · `site/index.html`
+- **QA** `docs/qa/REPORT_collect_20260903.md` — 1차 조건부 GO(결함 16) → 수정 → 재검수 **GO** / `docs/qa/REPORT_site_20260903.md` — 1차 조건부 GO(결함 8) → 수정 → 재검수 1~8 해소 + 신규 #9·#10(hold 줄 건수) → 수정 → **hold 줄 재확인 진행 중**. 오라클(`docs/qa/oracle_*`)·Chrome 증적(`site_*`, `site2_*`) 커밋
 
-### 사용자 결정·행동 대기
-1. **공공데이터포털 활용신청** — 마이홈 공공주택 모집공고(15108420), 국토부 실거래가 전월세 3종(아파트·연립다세대·오피스텔). 발급 키 → 저장소 Settings → Secrets → `DATA_GO_KR_KEY`
-2. **마이홈 API 응답 스키마 확정** — 활용신청 후에만 가능. 금액·면적·대상 필드 유무에 따라 탭2 카드 구성 확정
-3. **역↔법정동 매핑 검토** — 개발자가 13역 초안(`config.json`)을 만들면 생활권 감각으로 1회 검토
+### 사용자 결정·행동 대기 (전부 사용자만 가능)
+1. 🔴 **공공데이터포털 활용신청(자동승인)** — 실거래 전월세 3종(15126474 아파트 · 15126473 연립다세대 · 15126475 오피스텔), **LH 15058530(+15057999·15056765)**, 마이홈 15108420. 발급 키 → 저장소 Settings → Secrets → `DATA_GO_KR_KEY`. **키가 들어오기 전까지 실데이터는 한 번도 검증되지 않았다.** 첫 실주행은 `config.json` 의 `⚠️미확인` 상수(실거래 엔드포인트 경로·응답 필드 국문/영문·LH `CNP_CD=26`·봉투 구조)를 한 번에 확정한다 — 틀리면 `fail` 로 드러나게 만들어 두었다(조용한 0건 아님)
+2. 🔴 **저장소 Settings → Pages → Source = GitHub Actions** (`daily.yml` 이 `deploy-pages` 사용)
+3. 🔴 **역↔법정동 매핑 검토 1회** — `config.json` `stations[].dongs`(수기 초안). 특히 교대(연제구 거제동)·부산대(온천동·부곡동)·범어사(청룡동). LH 자동수집분은 응답에 법정동이 없어 `station_ids` 가 비므로 **"13역 인근" 필터에서는 가려지고 "부산 전역" 으로 봐야 한다**(수동 등록으로 역을 붙일 수 있음)
+4. (선택) 마이홈 API 스키마 확정 후 `config.myhome.list_endpoint` 채우기 — 현재 null → 영구 `skip`
 
-### 다음 할 일 (개발 단계 착수 순서)
-1. `config.json` — 13역·기준역·시군구 코드·설정값(trade_months 12 / trend_months 3 / conversion_rate 6.0 / sample_min 5) + 역↔법정동 매핑 초안
-2. `collect.py` — 실거래 3종 수집기 먼저(키만 있으면 바로 검증 가능) → 마이홈 → LH 메타 감지 → 스냅샷 diff(`notices_prev.json`)
-3. `data/policies.json`·`income_tables.json` — DATA_SOURCES 값 이관, `confidence`·`year_label` 포함
-4. `build.py` — 목업 `mockup/index.html` 의 구조·클래스·`const DATA` 스키마를 승계해 템플릿화. `data-mock-only` 3곳 제거
-5. `.github/workflows/daily.yml` — cron `0 22 * * *`(UTC = 07:00 KST) → collect → build → commit → Pages. 저장소 Settings → Pages → Source = GitHub Actions
-6. `ht-qa` 로 SPEC §4 Q1~Q56 검수(20번 "2회 연속 수집 신규 0건" 포함)
+### 다음 할 일
+1. QA B 의 hold 줄 재확인 결과 반영(보고서 재검수 절 R10) → 화면 계층 **GO** 확정
+2. 키 발급 후: `DATA_GO_KR_KEY=… python collect.py` 1회 → `data/raw_myhome_last.json`·LH 응답 덤프로 스키마 확정 → `config.json` `_note` 미확인 상수 정리 → LH 상세 API(15057999·15056765)에 금액·면적이 있으면 SPEC §3-5 "자동 승격 규칙" 추가 + `lh_detail_confirmed: true`
+3. 첫 실주행 며칠간 탭5 `new_notices` 육안 확인(복합키 폴백 공고의 제목 변경 오탐 감시) — QA A 잔존 ②
+4. 잔여 조사: 럭키7하우스 2026 회차 원문 / 6인 가구 130% 원문 / 통합공공임대 맞벌이 % / 2026-06 완화 시행 여부 재확인(시행되면 `pending_change` → 값 갱신) / 민간 딥링크 실제 쿼리 문법(현재 플레이스홀더)
+5. Actions 첫 실행 로그에서 키 패턴 0건 육안 확인(Q42)
 
-### 잔여 조사(미확인)
-임대차 신고 금액 하한 / 럭키7하우스 2026 소득기준 / 1·3~6인 가구 130~140% 원문 / 민간 플랫폼 딥링크 실제 쿼리 문법(목업은 플레이스홀더)
+### 운영 메모
+- 병행 에이전트 작업 시 **`git add -A` 금지** — 경로 지정 스테이징(검수자 산출물 혼입 사고 1회 있었음)
+- `.claude/agents/ht-*.md` 는 저장소 루트를 cwd 로 Claude Code 를 열어야 `subagent_type` 으로 직접 호출된다. 다른 cwd 에서는 general-purpose/executor 에 "이 파일을 읽고 그 역할로" 지시
+- 이 PC(집)는 GitHub 푸시 자격증명 있음. 회사 PC 경로 `/c/DEVTool/hometrack`, 집 PC `/c/Users/cyh12/hometrack`

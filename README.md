@@ -38,4 +38,4 @@ GitHub Actions 에서는 저장소 Secrets `DATA_GO_KR_KEY` 로만 넣는다 —
 3. "hometrack 개발 시작"이라고 하면 `CLAUDE.md` §9 다음 할 일부터 이어진다.
 4. 세션 끝에 `/hometrack-handoff` → 커밋 → `git push`.
 
-상태: 기획·디자인 완료, 개발 미착수 (2026-09-03)
+상태: 개발 v1 완료 · fixture 기준 QA 완료 · **실키(`DATA_GO_KR_KEY`) 발급 전이라 실데이터 미검증** (2026-09-03). 자세한 현재 상태는 `CLAUDE.md` §9.
