@@ -745,7 +745,8 @@ build.py    → 위 JSON + data/policies.json + data/income_tables.json + config
 ```
 generated_at        : string (ISO8601, KST)
 config              : { base_station, conversion_rate, trade_months, trend_months,
-                        sample_min, banjeonse_ratio, deposit_hist_bucket,
+                        sample_min, banjeonse_ratio, deposit_hist_bucket, notice_retain_days,
+                        exclusion_rules: [ { keyword, input, match } ],   // (D19) build.py 가 config.json 에서 복사. 화면 공고 불가 판정의 유일한 근거표
                         sigungu_codes: string[],
                         stations: [ { id: string, name: string, gu: string, dongs: string[] } ] }
                       // stations = 1호선 순서 배열. build.py 가 config.json 에서 복사한다 (D18)
@@ -852,8 +853,8 @@ excluded_trade_count: int
       car_value_limit: int|null,
       savings_months_min: int|null,        // 청약통장 가입 개월
       savings_count_min: int|null,         // 납입 회차
-      age_max: int|null,
-      region: string|null },
+      age_max: int|null,                   // 입력 축 없음 → 값이 있으면 `조건부 — 연령 요건 확인 필요` 사유만 (불가 아님)
+      region: string|null },               // "전국" 또는 "부산"으로 시작하면 충족, 그 외는 `조건부 — 지역 요건 확인 필요`
     benefit: { summary: string, limit_amount: int|null, rate_note: string|null },
     pending_change: { summary: string,
                       source_url: string,
