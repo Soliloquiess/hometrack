@@ -131,3 +131,16 @@ $ python docs/qa/oracle_collect_edge.py
 1. **"200 OK는 성공이 아니다."** data.go.kr 계열은 인증 실패·트래픽 초과·파라미터 오류를 HTTP 200 + 오류 봉투로 돌려준다. DEF-1·DEF-2 수정 전에는 실모드로 돌리지 말 것.
 2. **`disappeared`는 되돌릴 수 없다.** `notices_prev.json`이 매 실행 덮여 쓰이므로 오탐이 새 기준선이 되고 `notice_retain_days` 후 잘려 나간다.
 3. **복합키는 조용히 흔들린다.** DEF-4는 같은 구·같은 공급유형 공고가 2건 이상인 실데이터에서만 터진다.
+
+---
+
+## 재검수 (커밋 `525fa70`, 2026-09-03) — 판정: **GO**
+
+DEF-1~DEF-16 **16건 전부 수정 확인.** 오라클 NG 0건(`oracle_collect_edge.py` OK 71 / NG 0 · `oracle_collect_trades.py` 31조합 불일치 0), `--fixture-scenario` 6종 전부 규격대로(해당 수집기 `fail` 또는 `lh_zero` 는 `ok`+마감 판정 보류, 직전 데이터 유지, `disappeared` 0, `closed` 0, `collector_failures[].status` 존재), 복합 식별키 입력 순열 24개 전수 불변. 치명·높음 잔존 0.
+
+- 초판 오라클 F절 3항의 판정식은 검수자 측 오류였다(`lh_extract_items` 는 순수 추출기, 봉투 검사는 `check_lh_envelope()` 가 `collect_lh` 페이지 루프에서 선행 호출). 오라클을 그 함수 기준으로 고치고 케이스를 5종으로 넓혔다.
+- DEF-1 방어 3중(봉투 `SS_CODE` / `ALL_CNT>0`·파싱 0건 / 직전 공고 있는데 0건 → `authoritative` 강등), DEF-2 방어 4중(봉투 감지 / `resultCode` 부재 / `totalCount`≠파싱 수 / 전 구간 0건).
+- DEF-5 e2e: `notice_status:"접수마감"` 공고 → `closed_notices[].reason:"notice_status"`. DEF-6 음성 통제: 규칙 재삽입 시 `build.py` 경고 1건. DEF-7 오탐 전멸(`수영장`·`사상 최대`·`기장님`·`서울 강남구` → null) + 참긍정 유지. DEF-9 재기록 후 CRLF 0. DEF-11 발급키 원문 grep(`-q`). DEF-12 잡별 권한 + `timeout-minutes`.
+- 회귀: 시크릿 grep 0 · 46자 가짜 키 실모드(403) 키 노출 0 · 빌드 경고 0 · 스모크 throw 0 · 2회 연속 fixture 신규 0.
+
+**잔존(결함 아님)**: ① 재료 완전 동일 레코드의 `#N` 재배정(원리적 한계) ② `PAN_ID` 없는 공고의 복합키는 제목 변경에 흔들림(SPEC §3-5 폴백 성질 — 실주행 며칠간 `new_notices` 육안 확인 권장) ③ `lh_zero`(0건 수집 보류)가 탭5 새 소식에 실리지 않음 — 원칙 7 취지상 SPEC 개정 검토 사안 ④ 실키 실호출 확인 6건 — DEF-2 가드가 이제 불확실성을 `fail` 로 드러내므로 첫 실주행에서 즉시 감지됨 ⑤ 마이홈 스키마·매핑 사용자 검토·6인 130% 원문·Actions 로그 실물.

@@ -144,7 +144,7 @@ AUTH_ERR = b"""<OpenAPI_ServiceResponse><cmmMsgHeader>
 <returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg>
 <returnReasonCode>30</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>"""
 try:
-    rows, total = collect.parse_trade_xml(AUTH_ERR, "apt", "26410", "202609")
+    rows, total, _n = collect.parse_trade_xml(AUTH_ERR, "apt", "26410", "202609")
     check("실거래 인증오류 응답이 예외로 걸러진다", False,
           "예외 없이 계약 %d건·totalCount %d 으로 '정상'이 된다 → aggregates 가 빈 배열로 덮여 직전 데이터가 사라진다"
           % (len(rows), total))
@@ -159,11 +159,50 @@ try:
 except Exception:
     check("resultCode 비정상은 예외", True)
 
-LH_ERR = b'[{"resHeader":[{"SS_CODE":"N","MSG":"\\uc778\\uc99d\\ud0a4 \\uc624\\ub958"}]}]'
-items, all_cnt = collect.lh_extract_items(json.loads(LH_ERR.decode()))
-check("LH 오류 응답(SS_CODE=N)이 0건 정상으로 처리되지 않는다", False if not items else True,
-      "items=%d, ALL_CNT=%d — SS_CODE 를 검사하지 않아 '공고 0건 수집 성공'이 되고, "
-      "직전 공고 전부가 disappeared=true(마감 추정)로 뒤집힌다" % (len(items), all_cnt))
+# 재검수(2026-09-03): 원 판정식은 `lh_extract_items` 가 오류 봉투에서 비어 있지 않은 items 를
+# 돌려주기를 요구했다. 그 함수는 "PAN_NM 을 가진 dict 를 모으는" 순수 추출기라 어떤 구현으로도
+# 만족할 수 없는 잘못된 판정식이었다(검수자 오류). 봉투 검사가 `check_lh_envelope()` 로 분리됐으니
+# 판정을 그 함수로 옮기고, 대신 케이스를 넓혀 더 강하게 본다.
+LH_ENVELOPES = [
+    ("SS_CODE=N 인증오류",
+     [{"resHeader": [{"SS_CODE": "N", "MSG": "인증키 오류", "ALL_CNT": "0"}]}, {"dsList": []}]),
+    ("SS_CODE=E 파라미터오류",
+     [{"resHeader": [{"SS_CODE": "E", "ERR_MSG": "필수 파라미터 누락"}]}]),
+    ("SS_CODE 자체가 없는 봉투", [{"dsList": []}]),
+    ("빈 리스트 응답", []),
+    ("빈 dict 응답", {}),
+]
+for _label, _payload in LH_ENVELOPES:
+    try:
+        collect.check_lh_envelope(_payload)
+        check("LH 오류 봉투가 예외로 걸러진다 - %s" % _label, False,
+              "예외 없음 -> '공고 0건 수집 성공' 이 되어 직전 공고가 disappeared 로 뒤집힌다")
+    except Exception as _exc:  # noqa: BLE001
+        check("LH 오류 봉투가 예외로 걸러진다 - %s" % _label, True,
+              "%s: %s" % (type(_exc).__name__, _exc))
+
+OK_ENVELOPE = [{"resHeader": [{"SS_CODE": "Y", "ALL_CNT": "1"}]},
+               {"dsList": [{"PAN_NM": "테스트", "CNP_CD_NM": "부산광역시"}]}]
+try:
+    collect.check_lh_envelope(OK_ENVELOPE)
+    check("정상 봉투(SS_CODE=Y)는 통과한다", True)
+except Exception as _exc:  # noqa: BLE001
+    check("정상 봉투(SS_CODE=Y)는 통과한다", False, repr(_exc))
+
+_skew = [{"resHeader": [{"SS_CODE": "Y", "ALL_CNT": "37"}]}, {"dsListRenamed": [{"TITLE": "x"}]}]
+_items_skew, _cnt_skew = collect.lh_extract_items(_skew)
+check("ALL_CNT>0 · 파싱 0건 조건이 성립(collect_lh 가 실패로 올려야 한다)",
+      _cnt_skew > 0 and not _items_skew, "ALL_CNT=%d items=%d" % (_cnt_skew, len(_items_skew)))
+_src = (collect.ROOT / "collect.py").read_text(encoding="utf-8")
+check("봉투 검사가 collect_lh 페이지 루프에서 호출된다",
+      "check_lh_envelope(payload)" in _src)
+check("ALL_CNT>0 · 파싱 0건 가드가 collect_lh 에 있다",
+      "all_count > 0 and not batch" in _src)
+check("실거래 전 구간 0건 가드가 있다",
+      "실거래 전 구간 합계 0건" in _src)
+check("0건 수집 시 마감 판정 보류 가드가 있다",
+      "0건 수집 — 마감 판정 보류" in _src)
+
 
 print()
 print("=" * 72)
@@ -198,6 +237,81 @@ same = [mk("동일 제목 공고", "행복주택", "26410"), mk("동일 제목 �
 res2 = collect.assign_notice_ids([dict(x) for x in same])
 check("완전 동중복도 서로 다른 id 를 받는다",
       len({n["id"] for n in res2}) == 2, str([n["id"] for n in res2]))
+
+print()
+print("=" * 72)
+print("G2. 식별키 순서 불변성 — 순열 전수 (DEF-4 재검수)")
+print("=" * 72)
+import itertools
+
+
+def _mk2(title, supply, gu, url=None, no=None):
+    return {"source": "LH", "supply_type": supply, "sigungu_code": gu,
+            "apply_end": None, "apply_start": None, "title": title,
+            "_notice_no": no, "_detail_url": url}
+
+
+def _ids(rows):
+    out = collect.assign_notice_ids([dict(r) for r in rows])
+    return {(r["title"], r.get("_detail_url") or "", str(r.get("_notice_no") or "")): r["id"]
+            for r in out}
+
+
+# (1) 같은 재료(source+supply_type+sigungu_code)를 공유하는 공고 4건 — 제목·URL 만 다르다
+pool = [
+    _mk2("부산연제구 매입임대 A차 모집", "매입임대", "26470"),
+    _mk2("부산연제구 매입임대 B차 모집", "매입임대", "26470"),
+    _mk2("가나다 부산연제구 매입임대 신규", "매입임대", "26470"),
+    _mk2("ㄱㄴㄷ 부산연제구 매입임대 추가", "매입임대", "26470"),
+]
+base = _ids(pool)
+bad = []
+for perm in itertools.permutations(pool):
+    got = _ids(list(perm))
+    if got != base:
+        bad.append([r["title"] for r in perm])
+check("입력 순서 24개 순열 전부에서 id 동일 (재료 겹치는 4건)", not bad,
+      "불일치 순열 %d개" % len(bad))
+
+# (2) 부분집합 -> 전체집합 확장: 기존 id 가 보존되는가
+grow = []
+for k in range(1, len(pool) + 1):
+    ids_k = _ids(pool[:k])
+    for key, val in _ids(pool[:k - 1]).items() if k > 1 else []:
+        if ids_k.get(key) != val:
+            grow.append((k, key[0], val, ids_k.get(key)))
+check("공고를 1건씩 늘려도 기존 공고 id 가 바뀌지 않는다", not grow, str(grow))
+
+# (3) 공고 1건 삭제 시 남은 공고 id 보존
+drop = []
+for skip in range(len(pool)):
+    remain = [r for n, r in enumerate(pool) if n != skip]
+    got = _ids(remain)
+    for key, val in got.items():
+        if base.get(key) != val:
+            drop.append((skip, key[0], base.get(key), val))
+check("공고 1건이 사라져도 남은 공고 id 가 바뀌지 않는다", not drop, str(drop))
+
+# (4) 재료가 완전히 같은 3건 — #N 접미만 남는다(구분 불가 레코드의 한계)
+triple = [_mk2("같은 제목", "행복주택", "26410") for _ in range(3)]
+tids = sorted(r["id"] for r in collect.assign_notice_ids([dict(r) for r in triple]))
+check("재료 완전 동일 3건은 #N 으로만 갈린다", len(set(tids)) == 3, str(tids))
+t2 = sorted(r["id"] for r in collect.assign_notice_ids([dict(r) for r in triple[:2]]))
+check("재료 완전 동일 레코드는 1건 줄면 #N 이 재배정된다(원리적 한계 — 결함으로 보지 않음)",
+      t2 == tids[:2], "3건 %s -> 2건 %s" % (tids, t2))
+
+# (5) PAN_ID 가 있으면 제목·URL 이 바뀌어도 id 불변
+a = _mk2("원래 제목", "행복주택", "26410", url="https://x/1", no="0000059133")
+b = _mk2("한 글자 고친 제목", "행복주택", "26410", url="https://x/2", no="0000059133")
+ia = collect.assign_notice_ids([dict(a)])[0]["id"]
+ib = collect.assign_notice_ids([dict(b)])[0]["id"]
+check("PAN_ID 가 있으면 제목·URL 변경에도 id 불변", ia == ib, "%s vs %s" % (ia, ib))
+
+# (6) 제목이 한 글자 바뀌면 복합키는 바뀐다 (§3-5 폴백의 알려진 성질)
+c1 = collect.assign_notice_ids([dict(_mk2("제목 A", "매입임대", "26470"))])[0]["id"]
+c2 = collect.assign_notice_ids([dict(_mk2("제목 B", "매입임대", "26470"))])[0]["id"]
+check("복합키는 제목 변경 시 바뀐다(폴백의 알려진 성질 — 실데이터 감시 필요)", c1 != c2,
+      "%s vs %s" % (c1, c2))
 
 print()
 print("=" * 72)
